@@ -1,4 +1,15 @@
+---
+title: Resume Shortlister
+emoji: 🚀
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Resume Shortlister
+
 ### India Runs Data & AI Hackathon — Intelligent Candidate Discovery & Ranking
 
 > Given **100,000+ candidate resumes** and **any job description**, find the best matches in ~30 seconds.

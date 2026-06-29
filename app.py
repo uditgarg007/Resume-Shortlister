@@ -14,7 +14,7 @@ Performance optimization: Default JD results are cached after the first
 run, so judges can test the default JD instantly (~1 second).
 
 Usage:
-  python app.py              # starts on http://localhost:5000
+  python app.py              # starts on http://localhost:7860
   python app.py --port 8080  # custom port
 """
 
@@ -416,7 +416,7 @@ def api_run():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Resume Shortlister Web App")
-    parser.add_argument("--port", type=int, default=5000, help="Port to run on")
+    parser.add_argument("--port", type=int, default=7860, help="Port to run on")
     parser.add_argument("--debug", action="store_true", help="Enable Flask debug mode")
     args = parser.parse_args()
 
