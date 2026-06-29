@@ -64,7 +64,8 @@ git lfs track "processed/*.pkl"
 git lfs track "processed/*.index"
 
 # Commit and push
-git add .gitattributes processed/
+git add .gitattributes
+git add -f processed/
 git commit -m "Add processed embeddings via LFS"
 git push origin Main
 ```
