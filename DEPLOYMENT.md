@@ -66,7 +66,7 @@ git lfs track "processed/*.index"
 # Commit and push
 git add .gitattributes processed/
 git commit -m "Add processed embeddings via LFS"
-git push origin main
+git push origin Main
 ```
 
 ---
@@ -86,7 +86,7 @@ git push origin main
 4. On first deploy, run the pipeline to generate files:
    ```bash
    # In Railway shell
-   python run_pipeline.py --full
+   python run_pipeline.py --rebuild
    ```
 5. Subsequent deploys reuse the volume — instant startup.
 
@@ -159,7 +159,7 @@ Best for demos that need real scale.
 
 ```bash
 # 1. Clone repo
-git clone https://github.com/uditgarg007/Resume-Shortlister.git
+git clone -b Main https://github.com/uditgarg007/Resume-Shortlister.git
 cd Resume-Shortlister
 
 # 2. Create virtual environment
@@ -170,7 +170,7 @@ source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # 4. Generate processed files (first time only, ~5 min)
-python run_pipeline.py --full
+python run_pipeline.py --rebuild
 
 # 5. Start the server
 python app.py
