@@ -1,0 +1,62 @@
+# Large data files (exceed GitHub 100 MB limit)
+candidates.jsonl
+
+# Processed artifacts — regenerated via run_pipeline.py
+processed/embeddings.npy
+processed/faiss_hnsw.index
+processed/text_corpus.csv
+processed/text_corpus.pkl
+processed/bm25_index.pkl
+processed/numeric_signals.csv
+processed/numeric_signals.pkl
+processed/semantic_scores.csv
+processed/semantic_scores.pkl
+processed/final_ranking.csv
+processed/final_ranking.pkl
+processed/cached_default_results.json
+
+# Custom uploaded datasets (user-generated, potentially large)
+datasets/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Byte-compiled
+*.pyc
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Environment variables / secrets
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# macOS
+.DS_Store
+
+# Scratch / temp
+scratch_*.py
+*.tmp
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Logs
+*.log
