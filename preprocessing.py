@@ -14,7 +14,7 @@ algorithm-ready artefacts:
 
 Run directly:
     python preprocessing.py                         # uses full candidates.jsonl
-    python preprocessing.py --sample                # uses sample_candidates.json (fast dev mode)
+    python preprocessing.py --sample                # uses candidate.json (fast dev mode)
     python preprocessing.py --sample --verbose      # also prints intermediate info
 
 Outputs land in ./processed/ by default (configurable via OUTPUT_DIR).
@@ -44,7 +44,7 @@ ROOT_DIR   = Path(__file__).resolve().parent
 OUTPUT_DIR = ROOT_DIR / "processed"
 
 FULL_DATA_PATH   = ROOT_DIR / "candidates.jsonl"
-SAMPLE_DATA_PATH = ROOT_DIR / "sample_candidates.json"
+SAMPLE_DATA_PATH = ROOT_DIR / "candidate.json"
 
 # Numeric columns we want to pull directly from redrob_signals
 # (excludes dates, booleans, nested dicts/strings – handled separately)

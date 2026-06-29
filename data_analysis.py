@@ -45,7 +45,7 @@ def describe_nested_counts(df: pd.DataFrame) -> pd.DataFrame:
 
 def main() -> None:
     candidates_path = DATA_DIR / 'candidates.jsonl'
-    sample_candidates_path = DATA_DIR / 'sample_candidates.json'
+    sample_candidates_path = DATA_DIR / 'candidate.json'
     submission_path = DATA_DIR / 'sample_submission.csv'
 
     print('Loading datasets...')
@@ -55,7 +55,7 @@ def main() -> None:
 
     print('\n=== Dataset Summary ===')
     print(f'candidates.jsonl rows: {len(candidates_df):,}')
-    print(f'sample_candidates.json rows: {len(sample_candidates_df):,}')
+    print(f'candidate.json rows: {len(sample_candidates_df):,}')
     print(f'sample_submission.csv rows: {len(submission_df):,}')
 
     print('\n=== candidates.jsonl columns ===')
