@@ -1,268 +1,101 @@
-# Resume Shortlister — Intelligent Candidate Discovery & Ranking
+# Stage 3 — Final Ranking: Penalty & Bonus Engine
+### Resume Shortlister · India Runs Data & AI Hackathon
 
-> **India Runs Data & AI Challenge**
-> Full Pipeline: Web Frontend → Hybrid Semantic Scoring → Penalty & Bonus Engine → Final Ranking
+This branch contains the **complete CLI pipeline**: preprocessing → hybrid semantic scoring → business-rule penalty/bonus engine → final ranked output.
 
 ---
 
-## 🚀 Quick Start
+## What This Stage Does
 
-### Option A: Web UI (recommended)
+Takes the semantic scores from Stage 2 and applies **9 multiplicative penalties** and **5 additive bonuses** based on real recruiting signals, producing a final calibrated score per candidate.
 
-```bash
-pip install flask pandas numpy rank-bm25 faiss-cpu sentence-transformers
-python app.py
-# Open http://localhost:5000
+```
+final_score = semantic_score × penalty_multiplier + bonus_total
 ```
 
-1. Select **Default (100k candidates)** or upload your own `.csv` / `.json` dataset via the UI
-2. Click **"Load Default JD"** to test with the Redrob AI Engineer posting
-3. Adjust **tier weights** and **penalty multipliers** via sliders
-4. Click **"Run Pipeline"** → see ranked results in ~30-60 seconds
+---
 
-### Option B: CLI
+## How to Run
 
 ```bash
-# Full pipeline with default JD
+pip install -r requirements.txt
+
+# Full pipeline with default JD (Redrob AI Engineer)
 python run_pipeline.py --verbose
 
-# Custom JD from JSON
-python run_pipeline.py --jd-json my_jd.json --verbose
+# Custom JD
+python run_pipeline.py --jd-json my_jd.json --top-k 50
+
+# Force rebuild indices
+python run_pipeline.py --rebuild
 ```
 
-> **First run** downloads transformer models (~80 MB) and loads pre-computed embeddings. Subsequent runs start in ~5 seconds.
+> **First run:** downloads transformer models (~80 MB) and preprocesses candidates.  
+> **Subsequent runs:** loads cached indices and completes in ~30 seconds.
 
 ---
 
-## 📋 What This Does
+## Penalty Rules
 
-Given **100,000+ candidate resumes** and **any job description**, this system finds the best candidates using:
-
-| Stage | What | How |
+| Code | Condition | Multiplier |
 |---|---|---|
-| **Preprocessing** | Cleans raw JSON data | Text aggregation + numeric signal extraction |
-| **Hybrid Search** | Finds text matches | BM25 (20%) + HNSW Vector Search (80%) → Cross-Encoder reranking |
-| **Penalty Engine** | Applies business rules | 9 multiplicative penalties + 5 additive bonuses |
+| `GHOST` | Recruiter response rate < 20% | ×0.20 |
+| `MISMATCH` | Current title unrelated to JD | ×0.50 |
+| `HOPPER` | Avg tenure < 12 months | ×0.60 |
+| `NO_CODE` | No GitHub + zero assessments | ×0.70 |
+| `OVERQUAL` | YOE > 15 and applying for junior | ×0.75 |
+| `RELO_RISK` | Unwilling to relocate, remote-only | ×0.80 |
+| `NOTICE` | Notice period > 90 days | ×0.85 |
+| `CONSULTING` | Entire career at service firms | ×0.85 |
+| `UNVERIFIED` | No verified email or phone | ×0.90 |
 
-### Works on ANY Job Description & ANY Candidate Dataset
-
-The system is not hardcoded to one JD or candidate pool. Through the web UI or CLI, you can:
-- **Upload Custom Datasets**: Upload a `.csv` or `.json` file, and the app automatically parses the text, calculates dense vector embeddings, builds FAISS indices, and saves it as a new searchable candidate pool.
-- Enter **must-haves**, **good-to-haves**, **bonuses**, and **disqualifiers** as focused sub-queries
-- Adjust **tier weights** (how much each tier matters)
-- Tune **penalty multipliers** (how harsh each penalty is)
-
-The **default Redrob AI Engineer JD** and **100k candidate pool** are included for judges to test instantly.
-
-### Why it's fast for 100k candidates
-
-Pre-computed BM25 + FAISS HNSW indices ship with the app. Only the **Cross-Encoder reranking** (on the top 50-100 candidates) runs fresh per JD. This means:
-- Engine startup: ~20 seconds
-- Each new JD: ~30-60 seconds
+Penalties **compound multiplicatively**: a candidate matching two rules gets both applied.
 
 ---
 
-## 🏗️ Architecture
+## Bonus Rules
 
-```
-  Web UI (any JD)              CLI (--jd-json)
-       │                            │
-       ▼                            ▼
-┌─────────────────────────────────────────┐
-│         JD Tier Parser                  │
-│  must_have | good_to_have | bonus | disq│
-│  (weights configurable via sliders)     │
-└────────────────┬────────────────────────┘
-                 │
-┌────────────────▼────────────────────────┐
-│    STAGE 1: HYBRID RETRIEVAL            │
-│                                         │
-│  BM25 Index (20%) ─┐                   │
-│                     ├→ RRF → Top 200    │
-│  FAISS HNSW (80%) ──┘                   │
-│  (pre-computed embeddings)              │
-└────────────────┬────────────────────────┘
-                 │
-┌────────────────▼────────────────────────┐
-│    STAGE 2: CROSS-ENCODER RERANKING     │
-│                                         │
-│  Sub-query decomposition per tier       │
-│  "uses ChatGPT" → LOW score            │
-│  "builds ML models" → HIGH score        │
-│  Percentile-based score calibration     │
-└────────────────┬────────────────────────┘
-                 │
-┌────────────────▼────────────────────────┐
-│    STAGE 3: PENALTY & BONUS ENGINE      │
-│                                         │
-│  9 Penalties (configurable via sliders):│
-│    Ghost ×0.20 | Mismatch ×0.50        │
-│    Hopper ×0.60 | No Code ×0.70        │
-│    Consult ×0.65 | Low Profile ×0.80   │
-│    CV-Only ×0.55 | Research ×0.40      │
-│    LangChain ×0.45                      │
-│  5 Bonuses: Notice +0.05 | City +0.05  │
-│    GitHub +0.03 | Assessed +0.02       │
-│    Engaged +0.03                        │
-└────────────────┬────────────────────────┘
-                 │
-          final_ranking.csv
-          (rank, candidate_id, final_score 0→1)
-```
-
----
-
-## 📁 Repository Structure
-
-```
-resume-shortlister/
-│
-├── app.py                ←  Web frontend (Flask server)
-├── run_pipeline.py       ←  CLI pipeline runner
-├── hybrid_search.py      ←  Hybrid semantic scorer
-├── penalty.py            ←  Penalty & bonus engine
-├── preprocessing.py      ←  Data preprocessing
-├── default_jd.json       ←  Default JD for testing
-│
-├── templates/
-│   └── index.html        ←  Web UI template
-├── static/
-│   ├── style.css         ←  Premium dark theme
-│   └── app.js            ←  Frontend logic
-│
-├── candidates.jsonl      ←  Full dataset (~487 MB)
-├── HOW_IT_WORKS.md       ←  Plain-English walkthrough
-├── README.md             ←  This file
-├── DEPLOYMENT.md         ←  Production deployment guide
-├── STATUS.md             ←  Current capabilities & future roadmap
-│
-├── datasets/             ←  Custom user-uploaded datasets
-└── processed/            ←  Default 100k pre-computed indices
-    ├── text_corpus.pkl
-    ├── numeric_signals.pkl
-    ├── bm25_index.pkl
-    ├── faiss_hnsw.index
-    └── embeddings.npy
-```
-
----
-
-## ⚙️ Prerequisites
-
-**Python:** 3.9+ (3.10+ recommended)
-
-```bash
-pip install flask pandas numpy rank-bm25 faiss-cpu sentence-transformers python-docx
-```
-
-| Package | Purpose |
-|---|---|
-| `flask` | Web frontend server |
-| `pandas` | DataFrames and data manipulation |
-| `numpy` | Numerical operations |
-| `rank-bm25` | BM25Okapi keyword search |
-| `faiss-cpu` | HNSW vector index |
-| `sentence-transformers` | Bi-Encoder + Cross-Encoder models |
-| `python-docx` | Parse `.docx` JD files (optional) |
-
----
-
-## 🎛️ Web UI Features
-
-### JD Input
-- Enter requirements as **focused sub-queries** (10-30 words each)
-- Separate tiers: Must Have, Good to Have, Bonus, Disqualifiers
-- Add/remove queries dynamically
-- **"Load Default JD"** button pre-fills the Redrob AI Engineer posting
-
-### Tier Weight Sliders
-| Slider | Default | Range | What it controls |
-|---|---|---|---|
-| Must Have Weight | 1.00 | 0–1 | How much must-have matches contribute |
-| Good to Have Weight | 0.50 | 0–1 | How much nice-to-haves contribute |
-| Bonus Weight | 0.25 | 0–1 | How much bonuses contribute |
-| Disqualifier Penalty | 0.15 | 0–0.5 | How much to subtract for disqualifier matches |
-
-### Penalty Multiplier Sliders
-| Slider | Default | What it controls |
+| Code | Condition | Points |
 |---|---|---|
-| Ghost Candidate | ×0.20 | Unresponsive/inactive candidates |
-| Role Mismatch | ×0.50 | Non-tech titles with high AI scores |
-| Job Hopper | ×0.60 | Frequent job switching |
-| Coding Recency | ×0.70 | Senior with no coding proof |
-| Consulting Lifer | ×0.65 | Entire career at service firms |
-| Low Profile | ×0.80 | Incomplete profiles |
-| CV/Speech Only | ×0.55 | Wrong domain specialization |
-| Pure Research | ×0.40 | No production experience |
-| LangChain Only | ×0.45 | API wrappers without ML foundations |
+| `SHORT_NOTICE` | Notice period ≤ 15 days | +0.05 |
+| `TIER1_CITY` | Located in Tier-1 city | +0.05 |
+| `GITHUB` | GitHub activity score > 70 | +0.03 |
+| `ASSESSED` | Skill assessment mean > 75% | +0.02 |
+| `ENGAGED` | High platform engagement score | +0.03 |
 
-### Results View
-- **Stats bar:** Total indexed, scored, top score, mean, penalized/bonused counts
-- **Ranked table:** Score bars, penalty flags, bonus badges
-- **Gold/silver/bronze** ranking for top 3
+Bonuses use **exponential diminishing returns** to prevent artificial score caps.
 
 ---
 
-## 🔧 CLI Reference
+## Output
 
-### `app.py`
-```bash
-python app.py                  # default: http://localhost:5000
-python app.py --port 8080      # custom port
+`processed/final_ranking.csv`
+
 ```
-
-### `run_pipeline.py`
-```bash
-python run_pipeline.py                          # default JD
-python run_pipeline.py --jd-json my_jd.json     # custom JD from JSON
-python run_pipeline.py --jd job.docx            # custom JD from .docx
-python run_pipeline.py --top-k 50 --verbose     # control output
-python run_pipeline.py --rebuild                # force index rebuild
-```
-
-### `preprocessing.py`
-```bash
-python preprocessing.py --sample    # 50 candidates (fast)
-python preprocessing.py             # full dataset
+rank  candidate_id   final_score  semantic_score  penalty_mult  bonus   flags
+   1  CAND_0057701        0.9686          0.9500         ×1.00  +0.05  GITHUB(+0.03) ASSESSED(+0.02)
+   2  CAND_0053695        0.9683          0.8799         ×1.00  +0.13  SHORT_NOTICE TIER1_CITY GITHUB
+   3  CAND_0037944        0.9648          0.8255         ×1.00  +0.15  ...
 ```
 
 ---
 
-## 📊 Custom JD JSON Format
+## Files in This Branch
 
-```json
-{
-  "must_have": [
-    "Built and deployed embeddings-based retrieval systems in production",
-    "Production experience with vector databases FAISS Elasticsearch"
-  ],
-  "good_to_have": [
-    "LLM fine-tuning experience LoRA QLoRA PEFT"
-  ],
-  "bonus": [
-    "Shipped ranking system to real users at scale"
-  ],
-  "disqualifiers": [
-    "Career entirely in pure research without production deployment"
-  ]
-}
+```
+run_pipeline.py       ← End-to-end orchestrator (⭐ start here)
+penalty.py            ← 9 penalties + 5 bonuses engine
+hybrid_search.py      ← BM25 + HNSW + Cross-Encoder
+preprocessing.py      ← Text & numeric feature extraction
+default_jd.json       ← Default JD config
+candidate.json        ← 50-candidate sample
+candidate_schema.json ← JSON schema reference
+requirements.txt
+.gitignore
 ```
 
-Each entry should be a **short, focused query** (10-30 words). The Cross-Encoder works best with short queries — it was trained on Google-search-length inputs.
-
 ---
 
-## 📈 Output Files
+## Complete App → [Main](../tree/Main)
 
-| File | Description |
-|---|---|
-| `processed/final_ranking.csv` | Final ranked output with scores, penalties, bonuses |
-| `processed/semantic_scores.csv` | Intermediate semantic scores (before penalties) |
-| `processed/text_corpus.pkl` | Cleaned candidate text corpus |
-| `processed/numeric_signals.pkl` | Numeric signals per candidate |
-
----
-
-## 🧠 How It Works (detailed)
-
-See [HOW_IT_WORKS.md](HOW_IT_WORKS.md) for a complete plain-English walkthrough of every algorithm, formula, and design decision.
+For the full web interface with real-time sliders, see the **Main** branch.

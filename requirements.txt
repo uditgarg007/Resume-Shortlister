@@ -1,27 +1,8 @@
-# Resume Shortlister — Python Dependencies
-# Install: pip install -r requirements.txt
-# Python 3.10+ recommended
-
-# ── Web Framework ────────────────────────────────────────────
-flask>=3.0.0
-werkzeug>=3.0.0
-
-# ── ML / Embeddings ──────────────────────────────────────────
-sentence-transformers>=2.7.0
-torch>=2.1.0            # CPU-only: pip install torch --index-url https://download.pytorch.org/whl/cpu
-transformers>=4.40.0
-
-# ── Vector Search ────────────────────────────────────────────
-faiss-cpu>=1.8.0
-
-# ── BM25 Retrieval ───────────────────────────────────────────
-rank-bm25>=0.2.2
-
-# ── Data Processing ──────────────────────────────────────────
-numpy>=1.26.0
-pandas>=2.2.0
-scikit-learn>=1.4.0
-
-# ── Utilities ────────────────────────────────────────────────
-tqdm>=4.66.0
-python-dotenv>=1.0.0
+# Stage 3 — Full pipeline dependencies
+flask>=3.0
+pandas>=2.0
+numpy>=1.24
+faiss-cpu>=1.7
+sentence-transformers>=2.7
+rank-bm25>=0.2
+python-docx>=1.1
