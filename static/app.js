@@ -101,6 +101,23 @@ function setSlider(sliderId, valueId, val) {
   document.getElementById(valueId).textContent = parseFloat(val).toFixed(2);
 }
 
+// --- Top-K selector ---
+function setTopK(val) {
+  document.getElementById('topKValue').value = val;
+  document.querySelectorAll('.topk-btn').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.val) === val);
+  });
+  document.getElementById('topkCustom').value = '';
+}
+
+function setTopKCustom(val) {
+  const n = parseInt(val);
+  if (!isNaN(n) && n > 0) {
+    document.getElementById('topKValue').value = Math.min(n, 500);
+    document.querySelectorAll('.topk-btn').forEach(btn => btn.classList.remove('active'));
+  }
+}
+
 // --- Run pipeline ---
 async function runPipeline() {
   const btn = document.getElementById('btnRun');
@@ -132,7 +149,7 @@ async function runPipeline() {
     good_to_have: goodToHave,
     bonus: bonus,
     disqualifiers: disqualifiers,
-    top_k: 100,
+    top_k: parseInt(document.getElementById('topKValue').value) || 50,
     tier_weights: {
       must_have: parseFloat(document.getElementById('mustWeight').value),
       good_to_have: parseFloat(document.getElementById('goodWeight').value),
@@ -172,6 +189,10 @@ async function runPipeline() {
     document.getElementById('statusText').textContent = 
       `Pipeline complete${elapsed} — ${data.results.length} candidates ranked from ${data.stats.total_candidates.toLocaleString()} total`;
     
+    // Update badge in results header
+    const badge = document.getElementById('resultsCountBadge');
+    if (badge) badge.textContent = `Showing ${data.results.length}`;
+
     showToast(`✅ Done! Top candidate: ${data.results[0]?.candidate_id} (${data.results[0]?.final_score})`, false, true);
     
     // Scroll to results

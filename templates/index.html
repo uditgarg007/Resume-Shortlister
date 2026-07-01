@@ -208,6 +208,30 @@
           </div>
         </div>
 
+        <!-- Top-K Selector -->
+        <div class="card" style="padding:16px 26px">
+          <div class="card-header" style="margin-bottom:10px">
+            <div class="card-icon">#️⃣</div>
+            <div>
+              <div class="card-title">Results Count</div>
+              <div class="card-desc">Number of top candidates to rank &amp; display.</div>
+            </div>
+          </div>
+          <div class="topk-row">
+            <span class="slider-label">Show Top</span>
+            <div class="topk-options">
+              <button class="topk-btn" data-val="25" onclick="setTopK(25)">25</button>
+              <button class="topk-btn active" data-val="50" onclick="setTopK(50)">50</button>
+              <button class="topk-btn" data-val="100" onclick="setTopK(100)">100</button>
+              <button class="topk-btn" data-val="200" onclick="setTopK(200)">200</button>
+            </div>
+            <span class="topk-custom-wrap">
+              <input type="number" id="topkCustom" class="topk-custom-input" min="1" max="500" placeholder="Custom" oninput="setTopKCustom(this.value)">
+            </span>
+          </div>
+          <input type="hidden" id="topKValue" value="50">
+        </div>
+
         <!-- Run -->
         <button class="btn-primary" id="btnRun" onclick="runPipeline()" disabled>
           <span id="btnRunText">🚀 Run Pipeline</span>
@@ -225,7 +249,10 @@
                 <div class="card-desc" id="resultsDesc">Top candidates sorted by final score</div>
               </div>
             </div>
-            <button class="btn-secondary" id="btnExportCsv" onclick="exportCSV()" style="white-space:nowrap">⬇ Export CSV</button>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span id="resultsCountBadge" class="topk-badge"></span>
+              <button class="btn-secondary" id="btnExportCsv" onclick="exportCSV()" style="white-space:nowrap">⬇ Export CSV</button>
+            </div>
           </div>
 
           <div class="stats-bar" id="statsBar"></div>

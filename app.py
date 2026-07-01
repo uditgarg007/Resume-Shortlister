@@ -117,15 +117,19 @@ _results_cache: dict[str, dict] = {}
 # Store last pipeline results for CSV export
 _last_results: list[dict] = []
 
-# Candidate profile lookup — loaded once
+# Candidate profile lookup — loaded from candidate.json + candidates.jsonl
 _candidate_profiles: dict[str, dict] = {}
 _profiles_loaded = False
+_jsonl_path: Path | None = None  # path to full candidates.jsonl for fallback lookup
 
 def load_candidate_profiles():
-    """Load candidate profiles from candidate.json into memory (once)."""
-    global _candidate_profiles, _profiles_loaded
+    """Load candidate profiles from candidate.json (sample) into memory.
+    Also records the path to candidates.jsonl for on-demand lookup."""
+    global _candidate_profiles, _profiles_loaded, _jsonl_path
     if _profiles_loaded:
         return
+
+    # Load the small sample JSON first (fast)
     candidate_path = BASE_DIR / "candidate.json"
     if candidate_path.exists():
         try:
@@ -135,10 +139,38 @@ def load_candidate_profiles():
                 cid = c.get("candidate_id", "")
                 if cid:
                     _candidate_profiles[cid] = c
-            log.info("Loaded %d candidate profiles for lookup", len(_candidate_profiles))
+            log.info("Loaded %d profiles from candidate.json", len(_candidate_profiles))
         except Exception as e:
-            log.warning("Failed to load candidate profiles: %s", e)
+            log.warning("Failed to load candidate.json: %s", e)
+
+    # Record the full JSONL path for fallback lookups
+    jsonl_candidate = BASE_DIR / "candidates.jsonl"
+    if jsonl_candidate.exists():
+        _jsonl_path = jsonl_candidate
+        log.info("Full candidates.jsonl found — will scan on-demand for missing profiles")
+
     _profiles_loaded = True
+
+
+def lookup_candidate_in_jsonl(candidate_id: str) -> dict | None:
+    """Scan candidates.jsonl line-by-line looking for a specific candidate_id.
+    Returns the parsed dict or None if not found."""
+    if not _jsonl_path or not _jsonl_path.exists():
+        return None
+    prefix = f'"candidate_id": "{candidate_id}"'
+    try:
+        with open(_jsonl_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if prefix in line:
+                    try:
+                        data = json.loads(line)
+                        if data.get("candidate_id") == candidate_id:
+                            return data
+                    except Exception:
+                        pass
+    except Exception as e:
+        log.warning("JSONL scan failed for %s: %s", candidate_id, e)
+    return None
 
 def load_default_jd() -> dict:
     """Load the default JD config from JSON file."""
@@ -297,7 +329,7 @@ def api_run():
         if not jd["must_have"] or all(not q.strip() for q in jd["must_have"]):
             return jsonify({"error": "At least one 'Must Have' requirement is needed"}), 400
 
-        top_k = min(int(data.get("top_k", 100)), 500)
+        top_k = min(int(data.get("top_k", 50)), 500)
 
         # --- Check cache first ---
         cache_key = make_cache_key(data)
@@ -446,7 +478,14 @@ def api_run():
 def api_candidate_profile(candidate_id):
     """Return full profile data for a specific candidate."""
     load_candidate_profiles()
+    # Check in-memory cache first
     profile = _candidate_profiles.get(candidate_id)
+    if profile is None:
+        # Fall back to scanning the full JSONL file
+        profile = lookup_candidate_in_jsonl(candidate_id)
+        if profile:
+            # Cache it for next time
+            _candidate_profiles[candidate_id] = profile
     if profile is None:
         return jsonify({"error": f"Candidate {candidate_id} not found"}), 404
     return jsonify(profile)
