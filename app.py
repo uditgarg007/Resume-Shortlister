@@ -117,60 +117,101 @@ _results_cache: dict[str, dict] = {}
 # Store last pipeline results for CSV export
 _last_results: list[dict] = []
 
-# Candidate profile lookup — loaded from candidate.json + candidates.jsonl
-_candidate_profiles: dict[str, dict] = {}
+# Candidate profile lookup
+_candidate_profiles: dict[str, dict] = {}     # in-memory for sample JSON
+_jsonl_offset_index: dict[str, int] = {}      # candidate_id → byte offset in JSONL
+_jsonl_path: Path | None = None
 _profiles_loaded = False
-_jsonl_path: Path | None = None  # path to full candidates.jsonl for fallback lookup
+_index_ready = False
 
 def load_candidate_profiles():
-    """Load candidate profiles from candidate.json (sample) into memory.
-    Also records the path to candidates.jsonl for on-demand lookup."""
+    """Load sample profiles from candidate.json and start building the JSONL byte-offset index."""
     global _candidate_profiles, _profiles_loaded, _jsonl_path
     if _profiles_loaded:
         return
 
-    # Load the small sample JSON first (fast)
+    # Fast load: small sample file
     candidate_path = BASE_DIR / "candidate.json"
     if candidate_path.exists():
         try:
             with open(candidate_path, "r", encoding="utf-8") as f:
-                candidates = json.load(f)
-            for c in candidates:
-                cid = c.get("candidate_id", "")
-                if cid:
-                    _candidate_profiles[cid] = c
+                for c in json.load(f):
+                    cid = c.get("candidate_id", "")
+                    if cid:
+                        _candidate_profiles[cid] = c
             log.info("Loaded %d profiles from candidate.json", len(_candidate_profiles))
         except Exception as e:
             log.warning("Failed to load candidate.json: %s", e)
 
-    # Record the full JSONL path for fallback lookups
     jsonl_candidate = BASE_DIR / "candidates.jsonl"
     if jsonl_candidate.exists():
         _jsonl_path = jsonl_candidate
-        log.info("Full candidates.jsonl found — will scan on-demand for missing profiles")
+        # Build byte-offset index in a background thread so startup isn’t blocked
+        t = threading.Thread(target=_build_jsonl_index, daemon=True)
+        t.start()
+        log.info("Started background JSONL byte-offset index build")
+    else:
+        log.warning("candidates.jsonl not found — profile lookups limited to sample data")
 
     _profiles_loaded = True
 
 
+def _build_jsonl_index():
+    """Background: scan candidates.jsonl once and record byte offset of every line."""
+    global _jsonl_offset_index, _index_ready
+    if not _jsonl_path or not _jsonl_path.exists():
+        return
+    import re
+    _pattern = re.compile(rb'"candidate_id":\s*"(CAND_[^"]+)"')
+    count = 0
+    try:
+        with open(_jsonl_path, "rb") as f:
+            while True:
+                offset = f.tell()
+                line = f.readline()
+                if not line:
+                    break
+                m = _pattern.search(line)
+                if m:
+                    cid = m.group(1).decode()
+                    _jsonl_offset_index[cid] = offset
+                    count += 1
+        _index_ready = True
+        log.info("JSONL byte-offset index ready: %d candidates indexed", count)
+    except Exception as e:
+        log.warning("JSONL index build failed: %s", e)
+
+
 def lookup_candidate_in_jsonl(candidate_id: str) -> dict | None:
-    """Scan candidates.jsonl line-by-line looking for a specific candidate_id.
-    Returns the parsed dict or None if not found."""
+    """Fast lookup using pre-built byte-offset index."""
     if not _jsonl_path or not _jsonl_path.exists():
         return None
-    prefix = f'"candidate_id": "{candidate_id}"'
-    try:
-        with open(_jsonl_path, "r", encoding="utf-8") as f:
-            for line in f:
-                if prefix in line:
-                    try:
+    if not _index_ready:
+        # Index still building — fall back to slow scan for this one request
+        log.info("Index not ready, falling back to scan for %s", candidate_id)
+        prefix = f'"candidate_id": "{candidate_id}"'
+        try:
+            with open(_jsonl_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if prefix in line:
                         data = json.loads(line)
                         if data.get("candidate_id") == candidate_id:
                             return data
-                    except Exception:
-                        pass
+        except Exception as e:
+            log.warning("Fallback scan failed: %s", e)
+        return None
+    # Fast path: seek directly to the line
+    offset = _jsonl_offset_index.get(candidate_id)
+    if offset is None:
+        return None
+    try:
+        with open(_jsonl_path, "rb") as f:
+            f.seek(offset)
+            line = f.readline().decode("utf-8")
+            return json.loads(line)
     except Exception as e:
-        log.warning("JSONL scan failed for %s: %s", candidate_id, e)
-    return None
+        log.warning("JSONL seek failed for %s: %s", candidate_id, e)
+        return None
 
 def load_default_jd() -> dict:
     """Load the default JD config from JSON file."""
@@ -185,8 +226,7 @@ def load_default_jd() -> dict:
 
 
 def make_cache_key(payload: dict) -> str:
-    """Create a hash key from the JD + config for caching."""
-    # Hash only the parts that affect scoring
+    """Create a hash key from the JD + scoring config (NOT display top_k)."""
     key_parts = json.dumps({
         "must_have": payload.get("must_have", []),
         "good_to_have": payload.get("good_to_have", []),
@@ -195,8 +235,8 @@ def make_cache_key(payload: dict) -> str:
         "tier_weights": payload.get("tier_weights", {}),
         "disqualifier_penalty": payload.get("disqualifier_penalty", 0.15),
         "penalty_config": payload.get("penalty_config", {}),
-        "top_k": payload.get("top_k", 100),
         "dataset_name": payload.get("dataset_name", "default"),
+        # top_k intentionally excluded — display count does not change pipeline scoring
     }, sort_keys=True)
     return hashlib.md5(key_parts.encode()).hexdigest()
 
@@ -329,13 +369,17 @@ def api_run():
         if not jd["must_have"] or all(not q.strip() for q in jd["must_have"]):
             return jsonify({"error": "At least one 'Must Have' requirement is needed"}), 400
 
-        top_k = min(int(data.get("top_k", 50)), 500)
+        # top_k controls display only; pipeline always uses PIPELINE_TOP_K for consistent ranking
+        PIPELINE_TOP_K = 100
+        display_top_k = min(int(data.get("top_k", 50)), 500)
 
         # --- Check cache first ---
         cache_key = make_cache_key(data)
         if cache_key in _results_cache:
             log.info("Cache HIT — returning cached results (key=%s)", cache_key[:8])
-            return jsonify(_results_cache[cache_key])
+            cached = _results_cache[cache_key]
+            sliced = {"results": cached["results"][:display_top_k], "stats": cached["stats"]}
+            return jsonify(sliced)
 
         # Check if this is the default JD (compare sub-queries)
         default_jd = load_default_jd()
@@ -351,7 +395,8 @@ def api_run():
             cached = try_load_cached_results()
             if cached:
                 _results_cache[cache_key] = cached
-                return jsonify(cached)
+                sliced = {"results": cached["results"][:display_top_k], "stats": cached["stats"]}
+                return jsonify(sliced)
 
         # --- Override tier weights ---
         tier_weights = data.get("tier_weights", {})
@@ -400,11 +445,11 @@ def api_run():
             bm25_weight=0.20,
             vector_weight=0.80,
             retrieval_depth=200,
-            top_k=top_k,
+            top_k=PIPELINE_TOP_K,
         )
 
         # Stage 2: Cross-encoder reranking
-        sem_results = compute_tiered_score(engine, candidates, jd, top_k=top_k, verbose=False)
+        sem_results = compute_tiered_score(engine, candidates, jd, top_k=PIPELINE_TOP_K, verbose=False)
 
         # Normalize rrf_score
         rrf_min = sem_results["rrf_score"].min()
@@ -428,10 +473,10 @@ def api_run():
 
         elapsed = time.time() - start_time
 
-        # Build response
-        results = []
-        for _, row in final_results.head(top_k).iterrows():
-            results.append({
+        # Build full result list (all PIPELINE_TOP_K results stored in cache)
+        all_results = []
+        for _, row in final_results.iterrows():
+            all_results.append({
                 "rank": int(row["rank"]),
                 "candidate_id": row["candidate_id"],
                 "final_score": round(float(row["final_score"]), 4),
@@ -456,17 +501,17 @@ def api_run():
             "elapsed_seconds": round(elapsed, 1),
         }
 
-        response_data = {"results": results, "stats": stats}
-
-        # Cache in memory + disk (for default JD)
-        _results_cache[cache_key] = response_data
+        # Cache full results; response only sends display_top_k rows
+        cache_data = {"results": all_results, "stats": stats}
+        _results_cache[cache_key] = cache_data
         if is_default_jd:
-            save_cached_results(response_data)
+            save_cached_results(cache_data)
 
-        # Store for CSV export
+        # Store full results for CSV export
         global _last_results
-        _last_results = results
+        _last_results = all_results
 
+        response_data = {"results": all_results[:display_top_k], "stats": stats}
         return jsonify(response_data)
 
     except Exception as e:
