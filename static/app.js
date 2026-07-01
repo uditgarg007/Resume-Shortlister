@@ -357,105 +357,12 @@ function closeProfileModal(event) {
 }
 
 function renderCandidateProfile(c) {
-  const p = c.profile || {};
-  const signals = c.redrob_signals || {};
-  const career = c.career_history || [];
-  const skills = c.skills || [];
-  const education = c.education || [];
-  const certs = c.certifications || [];
-
-  // Profile header
-  let html = `
-    <div class="prof-header">
-      <div class="prof-avatar">${(p.anonymized_name || '?').charAt(0)}</div>
-      <div>
-        <div class="prof-name">${p.anonymized_name || 'Anonymous'}</div>
-        <div class="prof-headline">${p.headline || ''}</div>
-        <div class="prof-meta">
-          ${p.current_title ? `<span>💼 ${p.current_title} @ ${p.current_company || ''}</span>` : ''}
-          ${p.location ? `<span>📍 ${p.location}${p.country && p.country !== p.location ? ', '+p.country : ''}</span>` : ''}
-          ${p.years_of_experience ? `<span>⏳ ${p.years_of_experience} yrs exp</span>` : ''}
-        </div>
-      </div>
-    </div>`;
-
-  // Summary
-  if (p.summary) {
-    html += `<div class="prof-section"><div class="prof-section-title">Summary</div><p class="prof-summary">${p.summary}</p></div>`;
-  }
-
-  // Redrob signals
-  html += `<div class="prof-section">
-    <div class="prof-section-title">📊 Redrob Signals</div>
-    <div class="prof-signals-grid">
-      ${signalPill('Completeness', signals.profile_completeness_score + '%')}
-      ${signalPill('Open to Work', signals.open_to_work_flag ? '✅ Yes' : '❌ No')}
-      ${signalPill('Response Rate', signals.recruiter_response_rate != null ? (signals.recruiter_response_rate*100).toFixed(0)+'%' : 'N/A')}
-      ${signalPill('GitHub Score', signals.github_activity_score >= 0 ? signals.github_activity_score : 'N/A')}
-      ${signalPill('Notice Period', signals.notice_period_days != null ? signals.notice_period_days + ' days' : 'N/A')}
-      ${signalPill('Connections', signals.connection_count ?? 'N/A')}
-      ${signalPill('Verified Email', signals.verified_email ? '✅' : '❌')}
-      ${signalPill('Willing to Relocate', signals.willing_to_relocate ? '✅ Yes' : '❌ No')}
-    </div>
-  </div>`;
-
-  // Career history
-  if (career.length) {
-    html += `<div class="prof-section"><div class="prof-section-title">💼 Career History</div>`;
-    career.forEach(job => {
-      const dur = job.duration_months ? `${Math.floor(job.duration_months/12)}y ${job.duration_months%12}m` : '';
-      html += `<div class="prof-job">
-        <div class="prof-job-header">
-          <span class="prof-job-title">${job.title}</span>
-          <span class="prof-job-company">${job.company}</span>
-          <span class="prof-job-dur">${dur}${job.is_current ? ' (current)' : ''}</span>
-        </div>
-        ${job.description ? `<p class="prof-job-desc">${job.description}</p>` : ''}
-      </div>`;
-    });
-    html += `</div>`;
-  }
-
-  // Skills
-  if (skills.length) {
-    html += `<div class="prof-section"><div class="prof-section-title">🛠 Skills</div><div class="prof-skills">`;
-    skills.forEach(s => {
-      html += `<span class="prof-skill-tag ${s.proficiency}">${s.name} <small>${s.proficiency}</small></span>`;
-    });
-    html += `</div></div>`;
-  }
-
-  // Education
-  if (education.length) {
-    html += `<div class="prof-section"><div class="prof-section-title">🎓 Education</div>`;
-    education.forEach(e => {
-      html += `<div class="prof-edu"><strong>${e.degree} in ${e.field_of_study}</strong> — ${e.institution} (${e.start_year}–${e.end_year}) <span class="prof-edu-tier">${e.tier || ''}</span></div>`;
-    });
-    html += `</div>`;
-  }
-
-  // Certifications
-  if (certs.length) {
-    html += `<div class="prof-section"><div class="prof-section-title">🏅 Certifications</div><ul class="prof-certs">`;
-    certs.forEach(cert => {
-      html += `<li>${cert.name} — ${cert.issuer} (${cert.year})</li>`;
-    });
-    html += `</ul></div>`;
-  }
-
-  // Skill assessment scores
-  const assessments = signals.skill_assessment_scores || {};
-  const assessKeys = Object.keys(assessments);
-  if (assessKeys.length) {
-    html += `<div class="prof-section"><div class="prof-section-title">🧠 Skill Assessments</div><div class="prof-signals-grid">`;
-    assessKeys.forEach(k => {
-      html += signalPill(k, assessments[k].toFixed(1));
-    });
-    html += `</div></div>`;
-  }
-
-  return html;
+  // Just show the JSON details in a prettier format as requested
+  return `<pre style="background: rgba(13,21,38,0.7); padding: 16px; border-radius: var(--r-md); overflow-x: auto; color: var(--text-200); font-family: var(--mono); font-size: 0.85rem; border: 1px solid var(--glass-border);">` + 
+         JSON.stringify(c, null, 2) + 
+         `</pre>`;
 }
+
 
 function signalPill(label, value) {
   return `<div class="signal-pill"><div class="signal-val">${value}</div><div class="signal-lbl">${label}</div></div>`;
