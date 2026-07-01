@@ -191,6 +191,90 @@
           </div>
         </div>
 
+        <!-- Penalty Engine -->
+        <div class="card">
+          <div class="card-header border-bottom">
+            <div class="setting-label">
+              <i data-lucide="alert-triangle" class="icon-sm" style="color: var(--danger)"></i> Penalty Engine
+            </div>
+            <p class="setting-desc" style="margin-top: 4px; margin-bottom: 0;">Configure business logic penalties.</p>
+          </div>
+          
+          <div class="card-body">
+            <div class="slider-group">
+              <div class="slider-header">
+                <span class="slider-label">Ghost Candidate</span>
+                <span class="slider-value" id="ghostPenVal">0.20</span>
+              </div>
+              <input type="range" class="premium-slider" id="ghostPen" min="0" max="1" step="0.05" value="0.20" oninput="updateSlider('ghostPen','ghostPenVal')">
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-header">
+                <span class="slider-label">Role Mismatch</span>
+                <span class="slider-value" id="mismatchPenVal">0.50</span>
+              </div>
+              <input type="range" class="premium-slider" id="mismatchPen" min="0" max="1" step="0.05" value="0.50" oninput="updateSlider('mismatchPen','mismatchPenVal')">
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-header">
+                <span class="slider-label">Job Hopper</span>
+                <span class="slider-value" id="hopperPenVal">0.60</span>
+              </div>
+              <input type="range" class="premium-slider" id="hopperPen" min="0" max="1" step="0.05" value="0.60" oninput="updateSlider('hopperPen','hopperPenVal')">
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-header">
+                <span class="slider-label">Coding Focus</span>
+                <span class="slider-value" id="codingPenVal">0.70</span>
+              </div>
+              <input type="range" class="premium-slider" id="codingPen" min="0" max="1" step="0.05" value="0.70" oninput="updateSlider('codingPen','codingPenVal')">
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-header">
+                <span class="slider-label">Consulting Firm</span>
+                <span class="slider-value" id="consultPenVal">0.65</span>
+              </div>
+              <input type="range" class="premium-slider" id="consultPen" min="0" max="1" step="0.05" value="0.65" oninput="updateSlider('consultPen','consultPenVal')">
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-header">
+                <span class="slider-label">Low Profile</span>
+                <span class="slider-value" id="lowProfPenVal">0.80</span>
+              </div>
+              <input type="range" class="premium-slider" id="lowProfPen" min="0" max="1" step="0.05" value="0.80" oninput="updateSlider('lowProfPen','lowProfPenVal')">
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-header">
+                <span class="slider-label">Corporate CV</span>
+                <span class="slider-value" id="cvPenVal">0.55</span>
+              </div>
+              <input type="range" class="premium-slider" id="cvPen" min="0" max="1" step="0.05" value="0.55" oninput="updateSlider('cvPen','cvPenVal')">
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-header">
+                <span class="slider-label">Research Heavy</span>
+                <span class="slider-value" id="resPenVal">0.40</span>
+              </div>
+              <input type="range" class="premium-slider" id="resPen" min="0" max="1" step="0.05" value="0.40" oninput="updateSlider('resPen','resPenVal')">
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-header">
+                <span class="slider-label">Basic Stack (LangChain)</span>
+                <span class="slider-value" id="lcPenVal">0.45</span>
+              </div>
+              <input type="range" class="premium-slider" id="lcPen" min="0" max="1" step="0.05" value="0.45" oninput="updateSlider('lcPen','lcPenVal')">
+            </div>
+          </div>
+        </div>
+
         <!-- Search Options -->
         <div class="card">
           <div class="card-header border-bottom">
