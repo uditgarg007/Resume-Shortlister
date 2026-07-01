@@ -467,17 +467,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const resp = await fetch('/api/status');
     const data = await resp.json();
     if (data.ready) {
-      document.getElementById('statusDot').className = 'status-dot ready';
-      document.getElementById('engineDot').className = 'status-dot ready';
-      document.getElementById('statusText').textContent =
-        `Engine ready — ${data.candidates_indexed.toLocaleString()} candidates indexed with pre-computed embeddings`;
+      document.getElementById('engineDot').className = 'status-dot healthy';
       document.getElementById('engineStatus').textContent =
-        `${data.candidates_indexed.toLocaleString()} candidates indexed`;
+        `Engine ready — ${data.candidates_indexed.toLocaleString()} candidates indexed`;
       document.getElementById('btnRun').disabled = false;
     }
   } catch (err) {
-    document.getElementById('statusDot').className = 'status-dot error';
     document.getElementById('engineDot').className = 'status-dot error';
-    document.getElementById('statusText').textContent = 'Failed to connect to backend: ' + err.message;
+    document.getElementById('engineStatus').textContent = 'Failed to connect to backend: ' + err.message;
   }
 });
