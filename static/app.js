@@ -13,13 +13,16 @@ function updateSlider(sliderId, valueId) {
 function addQueryRow(listId, tier, value = '') {
   const list = document.getElementById(listId);
   const row = document.createElement('div');
-  row.className = 'query-row';
+  row.className = 'query-chip';
   row.innerHTML = `
-    <input type="text" class="query-input" placeholder="e.g. Production experience with vector databases FAISS Elasticsearch"
-           value="${escapeHtml(value)}" data-tier="${tier}">
-    <button class="btn-icon" onclick="this.parentElement.remove()" title="Remove">×</button>
+    <input type="text" class="query-chip-input" placeholder="Requirement..." value="${escapeHtml(value)}" data-tier="${tier}">
+    <button class="query-chip-remove" onclick="this.parentElement.remove()" title="Remove">
+      <i data-lucide="x" class="icon-sm"></i>
+    </button>
   `;
   list.appendChild(row);
+  if (window.lucide) lucide.createIcons({ root: row });
+  
   // Focus the new input
   const input = row.querySelector('input');
   if (!value) input.focus();
@@ -33,7 +36,7 @@ function escapeHtml(str) {
 }
 
 function getQueriesFromList(listId) {
-  const inputs = document.querySelectorAll(`#${listId} .query-input`);
+  const inputs = document.querySelectorAll(`#${listId} .query-chip-input`);
   return Array.from(inputs).map(i => i.value.trim()).filter(v => v.length > 0);
 }
 
