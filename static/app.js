@@ -144,6 +144,11 @@ async function runPipeline() {
 
   if (mustHave.length === 0) {
     showToast('Add at least one "Must Have" requirement', true);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="search" class="icon-md"></i> Search Candidates';
+      if (window.lucide) lucide.createIcons({ root: btn });
+    }
     return;
   }
 
@@ -286,56 +291,57 @@ function renderResults(data) {
     const scorePercent = Math.round(r.final_score * 100);
     const semPercent = Math.round(r.semantic_score * 100);
 
+    const badgeBaseStyle = "padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap;";
+    const penaltyStyle = badgeBaseStyle + " background: #FEE2E2; color: #991B1B; border: 1px solid #FCA5A5;";
+    const bonusStyle = badgeBaseStyle + " background: #DCFCE7; color: #166534; border: 1px solid #86EFAC;";
+    const noneStyle = badgeBaseStyle + " background: #F3F4F6; color: #6B7280; border: 1px solid #E5E7EB;";
+
     // Parse penalty/bonus flags
     const penaltyBadges = r.penalties === 'None' 
-      ? '<span class="penalty-badge none">—</span>'
+      ? `<span style="${noneStyle}">No Penalties</span>`
       : r.penalties.split(/\s+/).filter(Boolean).map(p => 
-          `<span class="penalty-badge penalty">${p}</span>`
+          `<span style="${penaltyStyle}">${p}</span>`
         ).join('');
     
     const bonusBadges = r.bonuses === 'None'
-      ? '<span class="penalty-badge none">—</span>'
+      ? ''
       : r.bonuses.split(/\s+/).filter(Boolean).map(b => 
-          `<span class="penalty-badge bonus">${b}</span>`
+          `<span style="${bonusStyle}">${b}</span>`
         ).join('');
 
     const row = document.createElement('tr');
     row.innerHTML = `
       <td class="rank-cell ${rankClass}">#${r.rank}</td>
       <td class="candidate-id">
-        <button class="candidate-link" title="Copy to clipboard" onclick="copyCandidateId('${r.candidate_id}')">${r.candidate_id} 📋</button>
+        <button class="candidate-link" title="Copy to clipboard" onclick="copyCandidateId('${r.candidate_id}')">
+          <i data-lucide="copy" class="icon-sm" style="margin-right:4px;"></i>${r.candidate_id}
+        </button>
       </td>
       <td>
         <div class="score-bar-container">
           <div class="score-bar"><div class="score-bar-fill" style="width:${scorePercent}%"></div></div>
-          <span class="score-value">${r.final_score.toFixed(4)}</span>
+          <span class="score-value" style="font-weight:600;">${r.final_score.toFixed(4)}</span>
         </div>
       </td>
       <td>
-        <div class="score-bar-container">
-          <div class="score-bar"><div class="score-bar-fill" style="width:${semPercent}%"></div></div>
-          <span class="score-value">${r.semantic_score.toFixed(4)}</span>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div class="reasoning-cell" style="line-height: 1.4;">${buildReasoning(r)}</div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            ${penaltyBadges} ${bonusBadges}
+          </div>
         </div>
       </td>
-      <td><span class="score-value">×${r.penalty_multiplier.toFixed(2)}</span></td>
-      <td><span class="score-value" style="color:var(--success)">+${r.bonus_total.toFixed(2)}</span></td>
-      <td class="reasoning-cell">${buildReasoning(r)}</td>
-      <td>${penaltyBadges} ${bonusBadges}</td>
     `;
     tbody.appendChild(row);
+    if (window.lucide) lucide.createIcons({ root: row });
   });
 }
 
-// --- Build reasoning summary (like the screenshot CSV) ---
 function buildReasoning(r) {
-  // Pull from penalty/bonus text if present
-  const parts = [];
-  if (r.penalties && r.penalties !== 'None') parts.push(`⚠ ${r.penalties}`);
-  if (r.bonuses && r.bonuses !== 'None') parts.push(`⭐ ${r.bonuses}`);
   const sem = (r.semantic_score * 100).toFixed(0);
-  const penStr = r.penalty_multiplier < 1.0 ? `penalty ×${r.penalty_multiplier.toFixed(2)}` : 'no penalty';
-  const bonusStr = r.bonus_total > 0 ? `bonus +${r.bonus_total.toFixed(2)}` : 'no bonus';
-  return `<span class="reasoning-text">Semantic ${sem}%; ${penStr}; ${bonusStr}${parts.length ? ' | ' + parts.join(', ') : ''}</span>`;
+  const penStr = r.penalty_multiplier < 1.0 ? `<span style="color:#991B1B">penalty ×${r.penalty_multiplier.toFixed(2)}</span>` : 'no penalty';
+  const bonusStr = r.bonus_total > 0 ? `<span style="color:#166534">bonus +${r.bonus_total.toFixed(2)}</span>` : 'no bonus';
+  return `<span class="reasoning-text" style="color:var(--text-muted); font-size:12px;">Semantic <b>${sem}%</b> &bull; ${penStr} &bull; ${bonusStr}</span>`;
 }
 
 // --- CSV Export ---
