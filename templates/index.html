@@ -62,11 +62,20 @@
           <div class="card-body">
             <!-- Must Have -->
             <div class="tier-section">
-              <div class="tier-header must-have">
-                <i data-lucide="check" class="tier-icon"></i>
-                <div class="tier-title-group">
-                  <h3 class="tier-label">Must Have</h3>
-                  <span class="tier-subtitle">Highest Priority Requirements</span>
+              <div class="tier-header-wrapper" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                <div class="tier-header must-have" style="margin-bottom: 0;">
+                  <i data-lucide="check" class="tier-icon"></i>
+                  <div class="tier-title-group">
+                    <h3 class="tier-label">Must Have</h3>
+                    <span class="tier-subtitle">Highest Priority Requirements</span>
+                  </div>
+                </div>
+                <div class="slider-group" style="width: 200px; margin-bottom: 0;">
+                  <div class="slider-header" style="margin-bottom: 6px;">
+                    <span class="slider-label" style="font-size: 12px; color: var(--text-muted)">Weight</span>
+                    <span class="slider-value" id="mustWeightVal">1.00</span>
+                  </div>
+                  <input type="range" class="premium-slider" id="mustWeight" min="0" max="1" step="0.05" value="1.00" oninput="updateSlider('mustWeight','mustWeightVal')">
                 </div>
               </div>
               <div class="query-list" id="mustHaveList"></div>
@@ -77,11 +86,20 @@
 
             <!-- Good to Have -->
             <div class="tier-section">
-              <div class="tier-header good-have">
-                <i data-lucide="star" class="tier-icon"></i>
-                <div class="tier-title-group">
-                  <h3 class="tier-label">Good to Have</h3>
-                  <span class="tier-subtitle">Preferred Skills</span>
+              <div class="tier-header-wrapper" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                <div class="tier-header good-have" style="margin-bottom: 0;">
+                  <i data-lucide="star" class="tier-icon"></i>
+                  <div class="tier-title-group">
+                    <h3 class="tier-label">Good to Have</h3>
+                    <span class="tier-subtitle">Preferred Skills</span>
+                  </div>
+                </div>
+                <div class="slider-group" style="width: 200px; margin-bottom: 0;">
+                  <div class="slider-header" style="margin-bottom: 6px;">
+                    <span class="slider-label" style="font-size: 12px; color: var(--text-muted)">Weight</span>
+                    <span class="slider-value" id="goodWeightVal">0.50</span>
+                  </div>
+                  <input type="range" class="premium-slider" id="goodWeight" min="0" max="1" step="0.05" value="0.50" oninput="updateSlider('goodWeight','goodWeightVal')">
                 </div>
               </div>
               <div class="query-list" id="goodToHaveList"></div>
@@ -92,11 +110,20 @@
 
             <!-- Bonus -->
             <div class="tier-section">
-              <div class="tier-header bonus">
-                <i data-lucide="gift" class="tier-icon"></i>
-                <div class="tier-title-group">
-                  <h3 class="tier-label">Bonus</h3>
-                  <span class="tier-subtitle">Additional Strengths</span>
+              <div class="tier-header-wrapper" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                <div class="tier-header bonus" style="margin-bottom: 0;">
+                  <i data-lucide="gift" class="tier-icon"></i>
+                  <div class="tier-title-group">
+                    <h3 class="tier-label">Bonus</h3>
+                    <span class="tier-subtitle">Additional Strengths</span>
+                  </div>
+                </div>
+                <div class="slider-group" style="width: 200px; margin-bottom: 0;">
+                  <div class="slider-header" style="margin-bottom: 6px;">
+                    <span class="slider-label" style="font-size: 12px; color: var(--text-muted)">Weight</span>
+                    <span class="slider-value" id="bonusWeightVal">0.25</span>
+                  </div>
+                  <input type="range" class="premium-slider" id="bonusWeight" min="0" max="1" step="0.05" value="0.25" oninput="updateSlider('bonusWeight','bonusWeightVal')">
                 </div>
               </div>
               <div class="query-list" id="bonusList"></div>
@@ -107,11 +134,20 @@
 
             <!-- Disqualifiers -->
             <div class="tier-section">
-              <div class="tier-header disqualifier">
-                <i data-lucide="ban" class="tier-icon"></i>
-                <div class="tier-title-group">
-                  <h3 class="tier-label">Disqualifiers</h3>
-                  <span class="tier-subtitle">Automatic Rejection Criteria</span>
+              <div class="tier-header-wrapper" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                <div class="tier-header disqualifier" style="margin-bottom: 0;">
+                  <i data-lucide="ban" class="tier-icon"></i>
+                  <div class="tier-title-group">
+                    <h3 class="tier-label">Disqualifiers</h3>
+                    <span class="tier-subtitle">Automatic Rejection Criteria</span>
+                  </div>
+                </div>
+                <div class="slider-group" style="width: 200px; margin-bottom: 0;">
+                  <div class="slider-header" style="margin-bottom: 6px;">
+                    <span class="slider-label" style="font-size: 12px; color: var(--text-muted)">Penalty</span>
+                    <span class="slider-value" id="disqPenaltyVal">-1.00</span>
+                  </div>
+                  <input type="range" class="premium-slider" id="disqPenalty" min="-2" max="0" step="0.1" value="-1.00" oninput="updateSlider('disqPenalty','disqPenaltyVal')">
                 </div>
               </div>
               <div class="query-list" id="disqualifiersList"></div>
@@ -148,48 +184,6 @@
           </div>
         </div>
 
-        <!-- Tier Weights -->
-        <div class="card">
-          <div class="card-header border-bottom">
-            <div class="setting-label">
-              <i data-lucide="scale" class="icon-sm"></i> Tier Weights
-            </div>
-          </div>
-          
-          <div class="card-body">
-            <div class="slider-group">
-              <div class="slider-header">
-                <span class="slider-label">Must Have</span>
-                <span class="slider-value" id="mustWeightVal">1.00</span>
-              </div>
-              <input type="range" class="premium-slider" id="mustWeight" min="0" max="1" step="0.05" value="1.00" oninput="updateSlider('mustWeight','mustWeightVal')">
-            </div>
-
-            <div class="slider-group">
-              <div class="slider-header">
-                <span class="slider-label">Good to Have</span>
-                <span class="slider-value" id="goodWeightVal">0.50</span>
-              </div>
-              <input type="range" class="premium-slider" id="goodWeight" min="0" max="1" step="0.05" value="0.50" oninput="updateSlider('goodWeight','goodWeightVal')">
-            </div>
-
-            <div class="slider-group">
-              <div class="slider-header">
-                <span class="slider-label">Bonus</span>
-                <span class="slider-value" id="bonusWeightVal">0.25</span>
-              </div>
-              <input type="range" class="premium-slider" id="bonusWeight" min="0" max="1" step="0.05" value="0.25" oninput="updateSlider('bonusWeight','bonusWeightVal')">
-            </div>
-
-            <div class="slider-group">
-              <div class="slider-header">
-                <span class="slider-label">Disqualifier Penalty</span>
-                <span class="slider-value" id="disqPenaltyVal">-1.00</span>
-              </div>
-              <input type="range" class="premium-slider" id="disqPenalty" min="-2" max="0" step="0.1" value="-1.00" oninput="updateSlider('disqPenalty','disqPenaltyVal')">
-            </div>
-          </div>
-        </div>
 
         <!-- Penalty Engine -->
         <div class="card">
