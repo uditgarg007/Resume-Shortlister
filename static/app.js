@@ -74,9 +74,7 @@ async function loadDefaultJD() {
       setSlider('goodWeight', 'goodWeightVal', jd.tier_weights.good_to_have || 0.5);
       setSlider('bonusWeight', 'bonusWeightVal', jd.tier_weights.bonus || 0.25);
     }
-    if (jd.disqualifier_penalty !== undefined) {
-      setSlider('disqPenalty', 'disqPenaltyVal', jd.disqualifier_penalty);
-    }
+    setSlider('disqPenalty', 'disqPenaltyVal', jd.disqualifier_penalty !== undefined ? jd.disqualifier_penalty : 0.15);
 
     // Set penalty sliders
     if (jd.penalty_config) {
@@ -169,7 +167,7 @@ async function runPipeline() {
       good_to_have: getVal('goodWeight', 0.5),
       bonus: getVal('bonusWeight', 0.25),
     },
-    disqualifier_penalty: getVal('disqPenalty', -1.0),
+    disqualifier_penalty: getVal('disqPenalty', 0.15),
     penalty_config: {
       ghost_penalty: getVal('ghostPen', 0.2),
       mismatch_penalty: getVal('mismatchPen', 0.5),

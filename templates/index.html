@@ -144,10 +144,10 @@
                 </div>
                 <div class="slider-group" style="width: 200px; margin-bottom: 0;">
                   <div class="slider-header" style="margin-bottom: 6px;">
-                    <span class="slider-label" style="font-size: 12px; color: var(--text-muted)">Penalty</span>
-                    <span class="slider-value" id="disqPenaltyVal">-1.00</span>
+                    <span class="slider-label" style="font-size: 12px; color: var(--text-muted)">Penalty (0=block, 1=ignore)</span>
+                    <span class="slider-value" id="disqPenaltyVal">0.15</span>
                   </div>
-                  <input type="range" class="premium-slider" id="disqPenalty" min="-2" max="0" step="0.1" value="-1.00" oninput="updateSlider('disqPenalty','disqPenaltyVal')">
+                  <input type="range" class="premium-slider" id="disqPenalty" min="0" max="1" step="0.05" value="0.15" oninput="updateSlider('disqPenalty','disqPenaltyVal')">
                 </div>
               </div>
               <div class="query-list" id="disqualifiersList"></div>
@@ -321,13 +321,10 @@
           <table class="results-table" id="resultsTable">
             <thead>
               <tr>
-                <th>Rank</th>
-                <th>Candidate ID</th>
-                <th>Final Score</th>
-                <th>Semantic Score</th>
-                <th>Penalty</th>
-                <th>Bonus</th>
-                <th>Reasoning</th>
+                <th style="width:60px">Rank</th>
+                <th style="width:160px">Candidate ID</th>
+                <th style="width:200px">Final Score</th>
+                <th>Analysis</th>
               </tr>
             </thead>
             <tbody id="resultsBody"></tbody>
