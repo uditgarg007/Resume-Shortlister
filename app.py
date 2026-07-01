@@ -117,101 +117,68 @@ _results_cache: dict[str, dict] = {}
 # Store last pipeline results for CSV export
 _last_results: list[dict] = []
 
-# Candidate profile lookup
-_candidate_profiles: dict[str, dict] = {}     # in-memory for sample JSON
-_jsonl_offset_index: dict[str, int] = {}      # candidate_id → byte offset in JSONL
+# Candidate profile lookup — binary search on sorted candidates.jsonl
+_candidate_profiles: dict[str, dict] = {}   # LRU-style in-memory cache
 _jsonl_path: Path | None = None
-_profiles_loaded = False
-_index_ready = False
+_jsonl_size: int = 0
+import re as _re
+_ID_PAT = _re.compile(rb'"candidate_id":\s*"(CAND_[^"]+)"')
+
 
 def load_candidate_profiles():
-    """Load sample profiles from candidate.json and start building the JSONL byte-offset index."""
-    global _candidate_profiles, _profiles_loaded, _jsonl_path
-    if _profiles_loaded:
-        return
-
-    # Fast load: small sample file
-    candidate_path = BASE_DIR / "candidate.json"
-    if candidate_path.exists():
-        try:
-            with open(candidate_path, "r", encoding="utf-8") as f:
-                for c in json.load(f):
-                    cid = c.get("candidate_id", "")
-                    if cid:
-                        _candidate_profiles[cid] = c
-            log.info("Loaded %d profiles from candidate.json", len(_candidate_profiles))
-        except Exception as e:
-            log.warning("Failed to load candidate.json: %s", e)
-
-    jsonl_candidate = BASE_DIR / "candidates.jsonl"
-    if jsonl_candidate.exists():
-        _jsonl_path = jsonl_candidate
-        # Build byte-offset index in a background thread so startup isn’t blocked
-        t = threading.Thread(target=_build_jsonl_index, daemon=True)
-        t.start()
-        log.info("Started background JSONL byte-offset index build")
+    """Locate candidates.jsonl for binary search. No pre-loading needed."""
+    global _jsonl_path, _jsonl_size
+    jsonl = BASE_DIR / "candidates.jsonl"
+    if jsonl.exists():
+        _jsonl_path = jsonl
+        _jsonl_size = jsonl.stat().st_size
+        log.info("candidates.jsonl ready for binary search (%d bytes)", _jsonl_size)
     else:
-        log.warning("candidates.jsonl not found — profile lookups limited to sample data")
-
-    _profiles_loaded = True
+        log.warning("candidates.jsonl not found")
 
 
-def _build_jsonl_index():
-    """Background: scan candidates.jsonl once and record byte offset of every line."""
-    global _jsonl_offset_index, _index_ready
-    if not _jsonl_path or not _jsonl_path.exists():
-        return
-    import re
-    _pattern = re.compile(rb'"candidate_id":\s*"(CAND_[^"]+)"')
-    count = 0
+def _read_line_at(f, offset: int) -> bytes:
+    """Seek to offset, skip partial line, return next complete line."""
+    f.seek(offset)
+    if offset > 0:
+        f.readline()  # discard the partial line we landed in the middle of
+    return f.readline()
+
+
+def lookup_candidate_binary(candidate_id: str) -> dict | None:
+    """Binary search candidates.jsonl (sorted by candidate_id) for the given ID.
+    IDs are zero-padded 7-digit so lexicographic order == numeric order.
+    Finds any record in ~17 file seeks for 100k candidates."""
+    if not _jsonl_path or _jsonl_size == 0:
+        return None
+    if candidate_id in _candidate_profiles:
+        return _candidate_profiles[candidate_id]
+
+    lo, hi = 0, _jsonl_size
     try:
         with open(_jsonl_path, "rb") as f:
-            while True:
-                offset = f.tell()
-                line = f.readline()
+            while lo < hi:
+                mid = (lo + hi) // 2
+                line = _read_line_at(f, mid)
                 if not line:
-                    break
-                m = _pattern.search(line)
-                if m:
-                    cid = m.group(1).decode()
-                    _jsonl_offset_index[cid] = offset
-                    count += 1
-        _index_ready = True
-        log.info("JSONL byte-offset index ready: %d candidates indexed", count)
+                    hi = mid
+                    continue
+                m = _ID_PAT.search(line)
+                if not m:
+                    lo = mid + 1
+                    continue
+                mid_id = m.group(1).decode()
+                if mid_id == candidate_id:
+                    data = json.loads(line.decode("utf-8"))
+                    _candidate_profiles[candidate_id] = data  # cache
+                    return data
+                elif mid_id < candidate_id:
+                    lo = mid + len(line)
+                else:
+                    hi = mid
     except Exception as e:
-        log.warning("JSONL index build failed: %s", e)
-
-
-def lookup_candidate_in_jsonl(candidate_id: str) -> dict | None:
-    """Fast lookup using pre-built byte-offset index."""
-    if not _jsonl_path or not _jsonl_path.exists():
-        return None
-    if not _index_ready:
-        # Index still building — fall back to slow scan for this one request
-        log.info("Index not ready, falling back to scan for %s", candidate_id)
-        prefix = f'"candidate_id": "{candidate_id}"'
-        try:
-            with open(_jsonl_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if prefix in line:
-                        data = json.loads(line)
-                        if data.get("candidate_id") == candidate_id:
-                            return data
-        except Exception as e:
-            log.warning("Fallback scan failed: %s", e)
-        return None
-    # Fast path: seek directly to the line
-    offset = _jsonl_offset_index.get(candidate_id)
-    if offset is None:
-        return None
-    try:
-        with open(_jsonl_path, "rb") as f:
-            f.seek(offset)
-            line = f.readline().decode("utf-8")
-            return json.loads(line)
-    except Exception as e:
-        log.warning("JSONL seek failed for %s: %s", candidate_id, e)
-        return None
+        log.warning("Binary search failed for %s: %s", candidate_id, e)
+    return None
 
 def load_default_jd() -> dict:
     """Load the default JD config from JSON file."""
@@ -521,18 +488,11 @@ def api_run():
 
 @app.route("/api/candidate/<candidate_id>")
 def api_candidate_profile(candidate_id):
-    """Return full profile data for a specific candidate."""
+    """Return full profile data for a specific candidate via binary search."""
     load_candidate_profiles()
-    # Check in-memory cache first
-    profile = _candidate_profiles.get(candidate_id)
+    profile = lookup_candidate_binary(candidate_id)
     if profile is None:
-        # Fall back to scanning the full JSONL file
-        profile = lookup_candidate_in_jsonl(candidate_id)
-        if profile:
-            # Cache it for next time
-            _candidate_profiles[candidate_id] = profile
-    if profile is None:
-        return jsonify({"error": f"Candidate {candidate_id} not found"}), 404
+        return jsonify({"error": f"Candidate {candidate_id} not found in dataset"}), 404
     return jsonify(profile)
 
 
