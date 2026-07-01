@@ -19,7 +19,9 @@ Usage:
 """
 
 import argparse
+import csv
 import hashlib
+import io
 import json
 import logging
 import os
@@ -30,7 +32,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response
 
 # Import pipeline modules
 from hybrid_search import (
@@ -111,6 +113,32 @@ def get_engine(dataset_name: str = "default") -> HybridSearchEngine:
 
 # Results cache — keyed by hash of JD + config
 _results_cache: dict[str, dict] = {}
+
+# Store last pipeline results for CSV export
+_last_results: list[dict] = []
+
+# Candidate profile lookup — loaded once
+_candidate_profiles: dict[str, dict] = {}
+_profiles_loaded = False
+
+def load_candidate_profiles():
+    """Load candidate profiles from candidate.json into memory (once)."""
+    global _candidate_profiles, _profiles_loaded
+    if _profiles_loaded:
+        return
+    candidate_path = BASE_DIR / "candidate.json"
+    if candidate_path.exists():
+        try:
+            with open(candidate_path, "r", encoding="utf-8") as f:
+                candidates = json.load(f)
+            for c in candidates:
+                cid = c.get("candidate_id", "")
+                if cid:
+                    _candidate_profiles[cid] = c
+            log.info("Loaded %d candidate profiles for lookup", len(_candidate_profiles))
+        except Exception as e:
+            log.warning("Failed to load candidate profiles: %s", e)
+    _profiles_loaded = True
 
 def load_default_jd() -> dict:
     """Load the default JD config from JSON file."""
@@ -403,11 +431,57 @@ def api_run():
         if is_default_jd:
             save_cached_results(response_data)
 
+        # Store for CSV export
+        global _last_results
+        _last_results = results
+
         return jsonify(response_data)
 
     except Exception as e:
         log.exception("Pipeline error")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/candidate/<candidate_id>")
+def api_candidate_profile(candidate_id):
+    """Return full profile data for a specific candidate."""
+    load_candidate_profiles()
+    profile = _candidate_profiles.get(candidate_id)
+    if profile is None:
+        return jsonify({"error": f"Candidate {candidate_id} not found"}), 404
+    return jsonify(profile)
+
+
+@app.route("/api/export-csv")
+def api_export_csv():
+    """Export the last pipeline results as a downloadable CSV file."""
+    if not _last_results:
+        return jsonify({"error": "No results to export. Run the pipeline first."}), 400
+
+    output = io.StringIO()
+    fieldnames = [
+        "rank", "candidate_id", "final_score", "semantic_score",
+        "penalty_multiplier", "bonus_total", "penalties", "bonuses",
+    ]
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+    for row in _last_results:
+        writer.writerow({
+            "rank": row["rank"],
+            "candidate_id": row["candidate_id"],
+            "final_score": row["final_score"],
+            "semantic_score": row["semantic_score"],
+            "penalty_multiplier": row["penalty_multiplier"],
+            "bonus_total": row["bonus_total"],
+            "penalties": row["penalties"],
+            "bonuses": row["bonuses"],
+        })
+    output.seek(0)
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=shortlisted_candidates.csv"},
+    )
 
 
 # ===========================================================================
@@ -419,6 +493,10 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=7860, help="Port to run on")
     parser.add_argument("--debug", action="store_true", help="Enable Flask debug mode")
     args = parser.parse_args()
+
+    # Pre-load candidate profiles at startup
+    log.info("Pre-loading candidate profiles...")
+    load_candidate_profiles()
 
     # Pre-load engine at startup
     log.info("Pre-loading search engine...")

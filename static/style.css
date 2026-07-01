@@ -708,6 +708,230 @@ input[type="range"]::-moz-range-thumb {
 ::-webkit-scrollbar-thumb:hover { background: var(--indigo-500); }
 
 /* ============================================================
+   Candidate link button (in results table)
+   ============================================================ */
+.candidate-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--indigo-300);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: rgba(132,148,234,0.3);
+  text-underline-offset: 3px;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+.candidate-link:hover {
+  color: var(--indigo-400);
+  text-decoration-color: var(--indigo-400);
+}
+
+/* ============================================================
+   Reasoning column
+   ============================================================ */
+.reasoning-cell { max-width: 240px; }
+.reasoning-text {
+  font-size: 0.73rem;
+  color: var(--text-300);
+  line-height: 1.5;
+  display: block;
+}
+
+/* ============================================================
+   Profile Modal
+   ============================================================ */
+.profile-modal-box {
+  width: 720px !important;
+  max-width: 96vw !important;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-modal-body {
+  overflow-y: auto;
+  flex: 1;
+  padding-right: 4px;
+}
+
+.profile-loading {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-300);
+  font-size: 0.9rem;
+}
+
+/* Profile header */
+.prof-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.prof-avatar {
+  width: 56px; height: 56px;
+  border-radius: var(--r-lg);
+  background: linear-gradient(135deg, var(--indigo-500), var(--mint-500));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; font-weight: 800; color: #fff;
+  flex-shrink: 0;
+}
+
+.prof-name {
+  font-size: 1.1rem; font-weight: 800;
+  color: var(--text-100);
+  margin-bottom: 4px;
+}
+
+.prof-headline {
+  font-size: 0.84rem;
+  color: var(--text-200);
+  margin-bottom: 8px;
+}
+
+.prof-meta {
+  display: flex; flex-wrap: wrap; gap: 12px;
+  font-size: 0.75rem; color: var(--text-300);
+}
+
+.prof-meta span { display: flex; align-items: center; gap: 4px; }
+
+/* Profile sections */
+.prof-section {
+  margin-bottom: 22px;
+}
+
+.prof-section-title {
+  font-size: 0.72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--text-400);
+  margin-bottom: 12px;
+}
+
+.prof-summary {
+  font-size: 0.84rem;
+  color: var(--text-200);
+  line-height: 1.7;
+}
+
+/* Redrob signals grid */
+.prof-signals-grid {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+
+.signal-pill {
+  padding: 8px 14px;
+  background: rgba(13,21,38,0.6);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-md);
+  min-width: 80px;
+  transition: border-color 0.2s;
+}
+.signal-pill:hover { border-color: var(--glass-border-hover); }
+
+.signal-val {
+  font-family: var(--mono);
+  font-size: 0.88rem; font-weight: 700;
+  color: var(--indigo-300);
+  line-height: 1.2;
+}
+
+.signal-lbl {
+  font-size: 0.65rem; color: var(--text-400);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  margin-top: 2px;
+}
+
+/* Career history */
+.prof-job {
+  background: rgba(13,21,38,0.45);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-md);
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  transition: border-color 0.2s;
+}
+.prof-job:hover { border-color: var(--glass-border-hover); }
+
+.prof-job-header {
+  display: flex; align-items: baseline; gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.prof-job-title {
+  font-size: 0.85rem; font-weight: 700;
+  color: var(--text-100);
+}
+.prof-job-company {
+  font-size: 0.78rem; color: var(--indigo-300);
+  font-weight: 600;
+}
+.prof-job-dur {
+  font-size: 0.72rem; color: var(--text-400);
+  font-family: var(--mono);
+  margin-left: auto;
+}
+.prof-job-desc {
+  font-size: 0.78rem; color: var(--text-300);
+  line-height: 1.6;
+}
+
+/* Skills */
+.prof-skills { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.prof-skill-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-size: 0.73rem; font-weight: 600;
+  border: 1px solid transparent;
+}
+.prof-skill-tag.advanced {
+  background: rgba(79,99,210,0.15);
+  border-color: rgba(132,148,234,0.3);
+  color: var(--indigo-300);
+}
+.prof-skill-tag.intermediate {
+  background: rgba(15,188,170,0.1);
+  border-color: rgba(45,206,192,0.25);
+  color: var(--mint-400);
+}
+.prof-skill-tag.beginner {
+  background: rgba(251,191,36,0.08);
+  border-color: rgba(251,191,36,0.2);
+  color: var(--amber-400);
+}
+.prof-skill-tag small {
+  font-size: 0.62rem; opacity: 0.7; font-weight: 400;
+}
+
+/* Education */
+.prof-edu {
+  font-size: 0.82rem; color: var(--text-200);
+  margin-bottom: 6px; line-height: 1.5;
+}
+.prof-edu-tier {
+  font-size: 0.68rem; color: var(--text-400);
+  margin-left: 6px;
+  background: rgba(255,255,255,0.05);
+  padding: 1px 6px; border-radius: 4px;
+}
+
+/* Certifications */
+.prof-certs {
+  padding-left: 18px;
+  font-size: 0.82rem; color: var(--text-200);
+  line-height: 1.8;
+}
+
+/* ============================================================
    Responsive
    ============================================================ */
 @media (max-width: 768px) {
@@ -717,4 +941,5 @@ input[type="range"]::-moz-range-thumb {
   .stats-bar { gap: 8px; }
   .stat-pill { padding: 10px 12px; }
   .stat-value { font-size: 1rem; }
+  .profile-modal-box { width: 100% !important; max-height: 95vh; }
 }

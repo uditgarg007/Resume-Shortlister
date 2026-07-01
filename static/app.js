@@ -264,7 +264,9 @@ function renderResults(data) {
     const row = document.createElement('tr');
     row.innerHTML = `
       <td class="rank-cell ${rankClass}">#${r.rank}</td>
-      <td class="candidate-id">${r.candidate_id}</td>
+      <td class="candidate-id">
+        <button class="candidate-link" onclick="openCandidateProfile('${r.candidate_id}')">${r.candidate_id}</button>
+      </td>
       <td>
         <div class="score-bar-container">
           <div class="score-bar"><div class="score-bar-fill" style="width:${scorePercent}%"></div></div>
@@ -279,10 +281,163 @@ function renderResults(data) {
       </td>
       <td><span class="score-value">×${r.penalty_multiplier.toFixed(2)}</span></td>
       <td><span class="score-value" style="color:var(--success)">+${r.bonus_total.toFixed(2)}</span></td>
+      <td class="reasoning-cell">${buildReasoning(r)}</td>
       <td>${penaltyBadges} ${bonusBadges}</td>
     `;
     tbody.appendChild(row);
   });
+}
+
+// --- Build reasoning summary (like the screenshot CSV) ---
+function buildReasoning(r) {
+  // Pull from penalty/bonus text if present
+  const parts = [];
+  if (r.penalties && r.penalties !== 'None') parts.push(`⚠ ${r.penalties}`);
+  if (r.bonuses && r.bonuses !== 'None') parts.push(`⭐ ${r.bonuses}`);
+  const sem = (r.semantic_score * 100).toFixed(0);
+  const penStr = r.penalty_multiplier < 1.0 ? `penalty ×${r.penalty_multiplier.toFixed(2)}` : 'no penalty';
+  const bonusStr = r.bonus_total > 0 ? `bonus +${r.bonus_total.toFixed(2)}` : 'no bonus';
+  return `<span class="reasoning-text">Semantic ${sem}%; ${penStr}; ${bonusStr}${parts.length ? ' | ' + parts.join(', ') : ''}</span>`;
+}
+
+// --- CSV Export ---
+function exportCSV() {
+  const link = document.createElement('a');
+  link.href = '/api/export-csv';
+  link.download = 'shortlisted_candidates.csv';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  showToast('✅ CSV download started!');
+}
+
+// --- Candidate Profile Modal ---
+async function openCandidateProfile(candidateId) {
+  const modal = document.getElementById('profileModal');
+  const title = document.getElementById('profileModalTitle');
+  const body = document.getElementById('profileModalBody');
+
+  title.textContent = candidateId;
+  body.innerHTML = '<div class="profile-loading">Loading profile…</div>';
+  modal.classList.remove('hidden');
+
+  try {
+    const resp = await fetch(`/api/candidate/${candidateId}`);
+    if (!resp.ok) throw new Error('Profile not found');
+    const data = await resp.json();
+    body.innerHTML = renderCandidateProfile(data);
+  } catch (err) {
+    body.innerHTML = `<div class="profile-loading" style="color:var(--error)">❌ ${err.message}</div>`;
+  }
+}
+
+function closeProfileModal(event) {
+  document.getElementById('profileModal').classList.add('hidden');
+}
+
+function renderCandidateProfile(c) {
+  const p = c.profile || {};
+  const signals = c.redrob_signals || {};
+  const career = c.career_history || [];
+  const skills = c.skills || [];
+  const education = c.education || [];
+  const certs = c.certifications || [];
+
+  // Profile header
+  let html = `
+    <div class="prof-header">
+      <div class="prof-avatar">${(p.anonymized_name || '?').charAt(0)}</div>
+      <div>
+        <div class="prof-name">${p.anonymized_name || 'Anonymous'}</div>
+        <div class="prof-headline">${p.headline || ''}</div>
+        <div class="prof-meta">
+          ${p.current_title ? `<span>💼 ${p.current_title} @ ${p.current_company || ''}</span>` : ''}
+          ${p.location ? `<span>📍 ${p.location}${p.country && p.country !== p.location ? ', '+p.country : ''}</span>` : ''}
+          ${p.years_of_experience ? `<span>⏳ ${p.years_of_experience} yrs exp</span>` : ''}
+        </div>
+      </div>
+    </div>`;
+
+  // Summary
+  if (p.summary) {
+    html += `<div class="prof-section"><div class="prof-section-title">Summary</div><p class="prof-summary">${p.summary}</p></div>`;
+  }
+
+  // Redrob signals
+  html += `<div class="prof-section">
+    <div class="prof-section-title">📊 Redrob Signals</div>
+    <div class="prof-signals-grid">
+      ${signalPill('Completeness', signals.profile_completeness_score + '%')}
+      ${signalPill('Open to Work', signals.open_to_work_flag ? '✅ Yes' : '❌ No')}
+      ${signalPill('Response Rate', signals.recruiter_response_rate != null ? (signals.recruiter_response_rate*100).toFixed(0)+'%' : 'N/A')}
+      ${signalPill('GitHub Score', signals.github_activity_score >= 0 ? signals.github_activity_score : 'N/A')}
+      ${signalPill('Notice Period', signals.notice_period_days != null ? signals.notice_period_days + ' days' : 'N/A')}
+      ${signalPill('Connections', signals.connection_count ?? 'N/A')}
+      ${signalPill('Verified Email', signals.verified_email ? '✅' : '❌')}
+      ${signalPill('Willing to Relocate', signals.willing_to_relocate ? '✅ Yes' : '❌ No')}
+    </div>
+  </div>`;
+
+  // Career history
+  if (career.length) {
+    html += `<div class="prof-section"><div class="prof-section-title">💼 Career History</div>`;
+    career.forEach(job => {
+      const dur = job.duration_months ? `${Math.floor(job.duration_months/12)}y ${job.duration_months%12}m` : '';
+      html += `<div class="prof-job">
+        <div class="prof-job-header">
+          <span class="prof-job-title">${job.title}</span>
+          <span class="prof-job-company">${job.company}</span>
+          <span class="prof-job-dur">${dur}${job.is_current ? ' (current)' : ''}</span>
+        </div>
+        ${job.description ? `<p class="prof-job-desc">${job.description}</p>` : ''}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Skills
+  if (skills.length) {
+    html += `<div class="prof-section"><div class="prof-section-title">🛠 Skills</div><div class="prof-skills">`;
+    skills.forEach(s => {
+      html += `<span class="prof-skill-tag ${s.proficiency}">${s.name} <small>${s.proficiency}</small></span>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // Education
+  if (education.length) {
+    html += `<div class="prof-section"><div class="prof-section-title">🎓 Education</div>`;
+    education.forEach(e => {
+      html += `<div class="prof-edu"><strong>${e.degree} in ${e.field_of_study}</strong> — ${e.institution} (${e.start_year}–${e.end_year}) <span class="prof-edu-tier">${e.tier || ''}</span></div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Certifications
+  if (certs.length) {
+    html += `<div class="prof-section"><div class="prof-section-title">🏅 Certifications</div><ul class="prof-certs">`;
+    certs.forEach(cert => {
+      html += `<li>${cert.name} — ${cert.issuer} (${cert.year})</li>`;
+    });
+    html += `</ul></div>`;
+  }
+
+  // Skill assessment scores
+  const assessments = signals.skill_assessment_scores || {};
+  const assessKeys = Object.keys(assessments);
+  if (assessKeys.length) {
+    html += `<div class="prof-section"><div class="prof-section-title">🧠 Skill Assessments</div><div class="prof-signals-grid">`;
+    assessKeys.forEach(k => {
+      html += signalPill(k, assessments[k].toFixed(1));
+    });
+    html += `</div></div>`;
+  }
+
+  return html;
+}
+
+function signalPill(label, value) {
+  return `<div class="signal-pill"><div class="signal-val">${value}</div><div class="signal-lbl">${label}</div></div>`;
 }
 
 // --- Toast notifications ---
