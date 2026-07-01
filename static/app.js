@@ -286,7 +286,7 @@ function renderResults(data) {
     row.innerHTML = `
       <td class="rank-cell ${rankClass}">#${r.rank}</td>
       <td class="candidate-id">
-        <button class="candidate-link" onclick="openCandidateProfile('${r.candidate_id}')">${r.candidate_id}</button>
+        <button class="candidate-link" title="Copy to clipboard" onclick="copyCandidateId('${r.candidate_id}')">${r.candidate_id} 📋</button>
       </td>
       <td>
         <div class="score-bar-container">
@@ -332,35 +332,13 @@ function exportCSV() {
   showToast('✅ CSV download started!');
 }
 
-// --- Candidate Profile Modal ---
-async function openCandidateProfile(candidateId) {
-  const modal = document.getElementById('profileModal');
-  const title = document.getElementById('profileModalTitle');
-  const body = document.getElementById('profileModalBody');
-
-  title.textContent = candidateId;
-  body.innerHTML = '<div class="profile-loading">Loading profile…</div>';
-  modal.classList.remove('hidden');
-
-  try {
-    const resp = await fetch(`/api/candidate/${candidateId}`);
-    if (!resp.ok) throw new Error('Profile not found');
-    const data = await resp.json();
-    body.innerHTML = renderCandidateProfile(data);
-  } catch (err) {
-    body.innerHTML = `<div class="profile-loading" style="color:var(--error)">❌ ${err.message}</div>`;
-  }
-}
-
-function closeProfileModal(event) {
-  document.getElementById('profileModal').classList.add('hidden');
-}
-
-function renderCandidateProfile(c) {
-  // Just show the JSON details in a prettier format as requested
-  return `<pre style="background: rgba(13,21,38,0.7); padding: 16px; border-radius: var(--r-md); overflow-x: auto; color: var(--text-200); font-family: var(--mono); font-size: 0.85rem; border: 1px solid var(--glass-border);">` + 
-         JSON.stringify(c, null, 2) + 
-         `</pre>`;
+// --- Click to Copy ---
+function copyCandidateId(id) {
+  navigator.clipboard.writeText(id).then(() => {
+    showToast('✅ Copied ' + id + ' to clipboard!');
+  }).catch(err => {
+    showToast('❌ Failed to copy to clipboard', true);
+  });
 }
 
 
