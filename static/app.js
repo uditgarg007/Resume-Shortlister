@@ -147,15 +147,11 @@ async function runPipeline() {
     return;
   }
 
-  // Disable button
-  btn.disabled = true;
-  btnText.innerHTML = '<span class="spinner"></span> Running pipeline...';
-
-  // Show progress
-  const statusBar = document.getElementById('statusBar');
-  statusBar.classList.remove('hidden');
-  document.getElementById('statusDot').className = 'status-dot loading';
-  document.getElementById('statusText').textContent = 'Running hybrid search + cross-encoder reranking...';
+  // Show progress in engine banner
+  const engineStatus = document.getElementById('engineStatus');
+  const engineDot = document.getElementById('engineDot');
+  if (engineStatus) engineStatus.textContent = 'Running hybrid search...';
+  if (engineDot) engineDot.className = 'status-dot loading';
 
   const payload = {
     must_have: mustHave,
@@ -224,6 +220,8 @@ async function runPipeline() {
       btn.innerHTML = '<i data-lucide="search" class="icon-md"></i> Search Candidates';
       if (window.lucide) lucide.createIcons({ root: btn });
     }
+    const engineDot = document.getElementById('engineDot');
+    if (engineDot) engineDot.className = 'status-dot healthy';
   }
 }
 
