@@ -124,13 +124,23 @@ function setTopKCustom(val) {
 // --- Run pipeline ---
 async function runPipeline() {
   const btn = document.getElementById('btnRun');
-  const btnText = document.getElementById('btnRunText');
   
-  // Collect data
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2" class="icon-md spin"></i> Searching...';
+    if (window.lucide) lucide.createIcons({ root: btn });
+  }
+
   const mustHave = getQueriesFromList('mustHaveList');
   const goodToHave = getQueriesFromList('goodToHaveList');
   const bonus = getQueriesFromList('bonusList');
   const disqualifiers = getQueriesFromList('disqualifiersList');
+
+  // Helper to safely get value from DOM
+  const getVal = (id, def) => {
+    const el = document.getElementById(id);
+    return el ? parseFloat(el.value) : def;
+  };
 
   if (mustHave.length === 0) {
     showToast('Add at least one "Must Have" requirement', true);
@@ -154,21 +164,21 @@ async function runPipeline() {
     disqualifiers: disqualifiers,
     top_k: parseInt(document.getElementById('topKValue').value) || 50,
     tier_weights: {
-      must_have: parseFloat(document.getElementById('mustWeight').value),
-      good_to_have: parseFloat(document.getElementById('goodWeight').value),
-      bonus: parseFloat(document.getElementById('bonusWeight').value),
+      must_have: getVal('mustWeight', 1.0),
+      good_to_have: getVal('goodWeight', 0.5),
+      bonus: getVal('bonusWeight', 0.25),
     },
-    disqualifier_penalty: parseFloat(document.getElementById('disqPenalty').value),
+    disqualifier_penalty: getVal('disqPenalty', -1.0),
     penalty_config: {
-      ghost_penalty: parseFloat(document.getElementById('ghostPen').value),
-      mismatch_penalty: parseFloat(document.getElementById('mismatchPen').value),
-      hopper_penalty: parseFloat(document.getElementById('hopperPen').value),
-      coding_penalty: parseFloat(document.getElementById('codingPen').value),
-      consulting_penalty: parseFloat(document.getElementById('consultPen').value),
-      low_profile_penalty: parseFloat(document.getElementById('lowProfPen').value),
-      cv_speech_penalty: parseFloat(document.getElementById('cvPen').value),
-      research_penalty: parseFloat(document.getElementById('resPen').value),
-      langchain_penalty: parseFloat(document.getElementById('lcPen').value),
+      ghost_penalty: getVal('ghostPen', 0.2),
+      mismatch_penalty: getVal('mismatchPen', 0.5),
+      hopper_penalty: getVal('hopperPen', 0.6),
+      coding_penalty: getVal('codingPen', 0.7),
+      consulting_penalty: getVal('consultPen', 0.65),
+      low_profile_penalty: getVal('lowProfPen', 0.8),
+      cv_speech_penalty: getVal('cvPen', 0.55),
+      research_penalty: getVal('resPen', 0.4),
+      langchain_penalty: getVal('lcPen', 0.45),
     },
     dataset_name: document.getElementById('datasetSelect').value,
   };
@@ -187,27 +197,33 @@ async function runPipeline() {
     }
 
     renderResults(data);
-    document.getElementById('statusDot').className = 'status-dot ready';
-    const elapsed = data.stats.elapsed_seconds ? ` in ${data.stats.elapsed_seconds}s` : '';
-    document.getElementById('statusText').textContent = 
-      `Pipeline complete${elapsed} — ${data.results.length} candidates ranked from ${data.stats.total_candidates.toLocaleString()} total`;
+    
+    // Status text update safely
+    const statusText = document.getElementById('engineStatus');
+    if (statusText) {
+      const elapsed = data.stats.elapsed_seconds ? ` in ${data.stats.elapsed_seconds}s` : '';
+      statusText.textContent = `Completed${elapsed} — ${data.results.length} ranked`;
+    }
     
     // Update badge in results header
     const badge = document.getElementById('resultsCountBadge');
     if (badge) badge.textContent = `Showing ${data.results.length}`;
 
-    showToast(`✅ Done! Top candidate: ${data.results[0]?.candidate_id} (${data.results[0]?.final_score})`, false, true);
+    showToast(`✅ Done! Top candidate: ${data.results[0]?.candidate_id} (${data.results[0]?.final_score.toFixed(2)})`, false, true);
     
     // Scroll to results
     document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   } catch (err) {
-    document.getElementById('statusDot').className = 'status-dot error';
-    document.getElementById('statusText').textContent = 'Error: ' + err.message;
+    const statusText = document.getElementById('engineStatus');
+    if (statusText) statusText.textContent = 'Error: ' + err.message;
     showToast('Pipeline error: ' + err.message, true);
   } finally {
-    btn.disabled = false;
-    btnText.innerHTML = '🚀 Run Pipeline';
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="search" class="icon-md"></i> Search Candidates';
+      if (window.lucide) lucide.createIcons({ root: btn });
+    }
   }
 }
 
