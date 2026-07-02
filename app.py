@@ -319,6 +319,7 @@ def api_run():
     tier_weights, disqualifier_penalty, penalty_config, top_k.
     """
     try:
+        global _last_results
         data = request.get_json()
         if not data:
             return jsonify({"error": "No JSON body provided"}), 400
@@ -346,6 +347,7 @@ def api_run():
             log.info("Cache HIT — returning cached results (key=%s)", cache_key[:8])
             cached = _results_cache[cache_key]
             sliced = {"results": cached["results"][:display_top_k], "stats": cached["stats"]}
+            _last_results = sliced["results"]
             return jsonify(sliced)
 
         # Check if this is the default JD (compare sub-queries)
@@ -363,6 +365,7 @@ def api_run():
             if cached:
                 _results_cache[cache_key] = cached
                 sliced = {"results": cached["results"][:display_top_k], "stats": cached["stats"]}
+                _last_results = sliced["results"]
                 return jsonify(sliced)
 
         # --- Override tier weights ---
@@ -475,8 +478,7 @@ def api_run():
             save_cached_results(cache_data)
 
         # Store full results for CSV export
-        global _last_results
-        _last_results = all_results
+        _last_results = all_results[:display_top_k]
 
         response_data = {"results": all_results[:display_top_k], "stats": stats}
         return jsonify(response_data)
