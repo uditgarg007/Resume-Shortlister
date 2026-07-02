@@ -54,6 +54,23 @@ TEXT_CORPUS_PATH = PROCESSED_DIR / "text_corpus.pkl"
 NUMERIC_SIGNALS_PATH = PROCESSED_DIR / "numeric_signals.pkl"
 CACHED_RESULTS_PATH = PROCESSED_DIR / "cached_default_results.json"
 
+
+def _environment_fingerprint() -> str:
+    """Generate a fingerprint of the current runtime environment.
+
+    If this fingerprint differs between machines, cached results are
+    invalidated because Cross-Encoder scores are not reproducible
+    across different Python/PyTorch/platform combinations.
+    """
+    import platform
+    import torch
+    parts = [
+        f"py={sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        f"torch={torch.__version__}",
+        f"platform={platform.system()}-{platform.machine()}",
+    ]
+    return "|".join(parts)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -203,18 +220,34 @@ def make_cache_key(payload: dict) -> str:
         "disqualifier_penalty": payload.get("disqualifier_penalty", 0.15),
         "penalty_config": payload.get("penalty_config", {}),
         "dataset_name": payload.get("dataset_name", "default"),
-        "top_k": min(int(payload.get("top_k", 50)), 100),
+        # top_k intentionally excluded — display count does not change pipeline scoring
     }, sort_keys=True)
     return hashlib.md5(key_parts.encode()).hexdigest()
 
 
 def try_load_cached_results() -> dict | None:
-    """Try to load cached default JD results from disk."""
+    """Try to load cached default JD results from disk.
+
+    Validates the environment fingerprint: if the cache was generated
+    on a different machine/Python/PyTorch version, it is rejected
+    because Cross-Encoder scores are NOT reproducible across environments.
+    """
     if CACHED_RESULTS_PATH.exists():
         try:
             with open(CACHED_RESULTS_PATH, "r", encoding="utf-8") as f:
                 cached = json.load(f)
-            log.info("Loaded cached default results from disk (%d results)", len(cached.get("results", [])))
+            # Validate environment fingerprint
+            cached_fp = cached.get("_env_fingerprint", "")
+            current_fp = _environment_fingerprint()
+            if cached_fp != current_fp:
+                log.warning(
+                    "Cached results fingerprint mismatch (cached=%s, current=%s) "
+                    "— discarding stale cache to ensure consistent results",
+                    cached_fp[:40], current_fp[:40],
+                )
+                return None
+            log.info("Loaded cached default results from disk (%d results, env match)",
+                     len(cached.get("results", [])))
             return cached
         except Exception as e:
             log.warning("Failed to load cached results: %s", e)
@@ -222,11 +255,13 @@ def try_load_cached_results() -> dict | None:
 
 
 def save_cached_results(data: dict):
-    """Save results to disk cache."""
+    """Save results to disk cache with environment fingerprint."""
     try:
+        data_with_fp = dict(data)
+        data_with_fp["_env_fingerprint"] = _environment_fingerprint()
         with open(CACHED_RESULTS_PATH, "w", encoding="utf-8") as f:
-            json.dump(data, f)
-        log.info("Saved results to disk cache")
+            json.dump(data_with_fp, f)
+        log.info("Saved results to disk cache (env=%s)", _environment_fingerprint()[:40])
     except Exception as e:
         log.warning("Failed to save cache: %s", e)
 
@@ -319,7 +354,6 @@ def api_run():
     tier_weights, disqualifier_penalty, penalty_config, top_k.
     """
     try:
-        global _last_results
         data = request.get_json()
         if not data:
             return jsonify({"error": "No JSON body provided"}), 400
@@ -337,9 +371,9 @@ def api_run():
         if not jd["must_have"] or all(not q.strip() for q in jd["must_have"]):
             return jsonify({"error": "At least one 'Must Have' requirement is needed"}), 400
 
+        # top_k controls display only; pipeline always uses PIPELINE_TOP_K for consistent ranking
+        PIPELINE_TOP_K = 100
         display_top_k = min(int(data.get("top_k", 50)), 500)
-        # Limit pipeline to what is displayed (up to 100) to avoid 60s timeout on Hugging Face Spaces
-        PIPELINE_TOP_K = min(display_top_k, 100)
 
         # --- Check cache first ---
         cache_key = make_cache_key(data)
@@ -347,7 +381,6 @@ def api_run():
             log.info("Cache HIT — returning cached results (key=%s)", cache_key[:8])
             cached = _results_cache[cache_key]
             sliced = {"results": cached["results"][:display_top_k], "stats": cached["stats"]}
-            _last_results = sliced["results"]
             return jsonify(sliced)
 
         # Check if this is the default JD (compare sub-queries)
@@ -365,33 +398,49 @@ def api_run():
             if cached:
                 _results_cache[cache_key] = cached
                 sliced = {"results": cached["results"][:display_top_k], "stats": cached["stats"]}
-                _last_results = sliced["results"]
                 return jsonify(sliced)
 
-        # --- Override tier weights ---
-        tier_weights = data.get("tier_weights", {})
+        # --- Override tier weights (save & restore to avoid state leaks) ---
         import hybrid_search
-        if tier_weights:
-            hybrid_search.TIER_WEIGHTS["must_have"] = float(tier_weights.get("must_have", 1.0))
-            hybrid_search.TIER_WEIGHTS["good_to_have"] = float(tier_weights.get("good_to_have", 0.5))
-            hybrid_search.TIER_WEIGHTS["bonus"] = float(tier_weights.get("bonus", 0.25))
-
-        disq_pen = data.get("disqualifier_penalty", 0.15)
-        hybrid_search.DISQUALIFIER_PENALTY = float(disq_pen)
-
-        # --- Override penalty config ---
-        penalty_config = data.get("penalty_config", {})
         import penalty as penalty_module
-        if penalty_config:
-            penalty_module.GHOST_PENALTY = float(penalty_config.get("ghost_penalty", 0.20))
-            penalty_module.MISMATCH_PENALTY = float(penalty_config.get("mismatch_penalty", 0.50))
-            penalty_module.HOPPER_PENALTY = float(penalty_config.get("hopper_penalty", 0.60))
-            penalty_module.CODING_PENALTY = float(penalty_config.get("coding_penalty", 0.70))
-            penalty_module.CONSULTING_PENALTY = float(penalty_config.get("consulting_penalty", 0.65))
-            penalty_module.LOW_COMPLETENESS_PENALTY = float(penalty_config.get("low_profile_penalty", 0.80))
-            penalty_module.CV_SPEECH_PENALTY = float(penalty_config.get("cv_speech_penalty", 0.55))
-            penalty_module.RESEARCH_ONLY_PENALTY = float(penalty_config.get("research_penalty", 0.40))
-            penalty_module.LANGCHAIN_ONLY_PENALTY = float(penalty_config.get("langchain_penalty", 0.45))
+
+        # Save originals so we can restore after this request
+        _saved_tw = dict(hybrid_search.TIER_WEIGHTS)
+        _saved_dp = hybrid_search.DISQUALIFIER_PENALTY
+        _saved_penalties = {
+            "GHOST_PENALTY": penalty_module.GHOST_PENALTY,
+            "MISMATCH_PENALTY": penalty_module.MISMATCH_PENALTY,
+            "HOPPER_PENALTY": penalty_module.HOPPER_PENALTY,
+            "CODING_PENALTY": penalty_module.CODING_PENALTY,
+            "CONSULTING_PENALTY": penalty_module.CONSULTING_PENALTY,
+            "LOW_COMPLETENESS_PENALTY": penalty_module.LOW_COMPLETENESS_PENALTY,
+            "CV_SPEECH_PENALTY": penalty_module.CV_SPEECH_PENALTY,
+            "RESEARCH_ONLY_PENALTY": penalty_module.RESEARCH_ONLY_PENALTY,
+            "LANGCHAIN_ONLY_PENALTY": penalty_module.LANGCHAIN_ONLY_PENALTY,
+        }
+
+        try:
+            tier_weights = data.get("tier_weights", {})
+            hybrid_search.TIER_WEIGHTS["must_have"] = float(tier_weights.get("must_have", _saved_tw["must_have"]))
+            hybrid_search.TIER_WEIGHTS["good_to_have"] = float(tier_weights.get("good_to_have", _saved_tw["good_to_have"]))
+            hybrid_search.TIER_WEIGHTS["bonus"] = float(tier_weights.get("bonus", _saved_tw["bonus"]))
+
+            disq_pen = data.get("disqualifier_penalty", _saved_dp)
+            hybrid_search.DISQUALIFIER_PENALTY = float(disq_pen)
+
+            penalty_config = data.get("penalty_config", {})
+            penalty_module.GHOST_PENALTY = float(penalty_config.get("ghost_penalty", _saved_penalties["GHOST_PENALTY"]))
+            penalty_module.MISMATCH_PENALTY = float(penalty_config.get("mismatch_penalty", _saved_penalties["MISMATCH_PENALTY"]))
+            penalty_module.HOPPER_PENALTY = float(penalty_config.get("hopper_penalty", _saved_penalties["HOPPER_PENALTY"]))
+            penalty_module.CODING_PENALTY = float(penalty_config.get("coding_penalty", _saved_penalties["CODING_PENALTY"]))
+            penalty_module.CONSULTING_PENALTY = float(penalty_config.get("consulting_penalty", _saved_penalties["CONSULTING_PENALTY"]))
+            penalty_module.LOW_COMPLETENESS_PENALTY = float(penalty_config.get("low_profile_penalty", _saved_penalties["LOW_COMPLETENESS_PENALTY"]))
+            penalty_module.CV_SPEECH_PENALTY = float(penalty_config.get("cv_speech_penalty", _saved_penalties["CV_SPEECH_PENALTY"]))
+            penalty_module.RESEARCH_ONLY_PENALTY = float(penalty_config.get("research_penalty", _saved_penalties["RESEARCH_ONLY_PENALTY"]))
+            penalty_module.LANGCHAIN_ONLY_PENALTY = float(penalty_config.get("langchain_penalty", _saved_penalties["LANGCHAIN_ONLY_PENALTY"]))
+
+        except Exception:
+            pass  # fall through — originals are still set
 
         # --- Run pipeline ---
         start_time = time.time()
@@ -477,15 +526,30 @@ def api_run():
         if is_default_jd:
             save_cached_results(cache_data)
 
-        # Store full results for CSV export
+        # Store displayed results for CSV export
+        global _last_results
         _last_results = all_results[:display_top_k]
 
-        response_data = {"results": all_results[:display_top_k], "stats": stats}
+        response_data = {"results": _last_results, "stats": stats}
         return jsonify(response_data)
 
     except Exception as e:
         log.exception("Pipeline error")
         return jsonify({"error": str(e)}), 500
+    finally:
+        # Restore module-level globals to prevent state leaks between requests
+        try:
+            import hybrid_search as _hs
+            import penalty as _pm
+            if '_saved_tw' in locals():
+                _hs.TIER_WEIGHTS.update(_saved_tw)
+            if '_saved_dp' in locals():
+                _hs.DISQUALIFIER_PENALTY = _saved_dp
+            if '_saved_penalties' in locals():
+                for attr, val in _saved_penalties.items():
+                    setattr(_pm, attr, val)
+        except Exception:
+            pass  # best-effort restore
 
 
 @app.route("/api/candidate/<candidate_id>")

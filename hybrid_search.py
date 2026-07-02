@@ -25,14 +25,37 @@ import json
 import logging
 import os
 import pickle
+import random
 import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import torch
 from rank_bm25 import BM25Okapi
 import faiss
 from sentence_transformers import SentenceTransformer, CrossEncoder
+
+# ---------------------------------------------------------------------------
+# Deterministic Inference — ensures reproducible scores across machines
+# Without this, Cross-Encoder produces slightly different floats on
+# different hardware (Windows GPU vs Linux CPU on HF Spaces), causing
+# score differences that cascade through calibration & ranking.
+# ---------------------------------------------------------------------------
+_SEED = 42
+random.seed(_SEED)
+np.random.seed(_SEED)
+torch.manual_seed(_SEED)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(_SEED)
+# Enable deterministic algorithms where possible (PyTorch ≥1.8)
+try:
+    torch.use_deterministic_algorithms(True, warn_only=True)
+except Exception:
+    pass
+# Disable CuDNN benchmarking (non-deterministic kernel selection)
+torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.deterministic = True
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -537,7 +560,9 @@ class HybridSearchEngine:
                 all_pairs.append([query, chunk])
                 candidate_indices.append(row_idx)
 
-        # Batch inference for speed
+        # Batch inference for speed — reset seeds for deterministic output
+        torch.manual_seed(_SEED)
+        np.random.seed(_SEED)
         raw_scores = self.cross_encoder.predict(all_pairs, batch_size=batch_size)
 
         # Aggregate: take MAX score across chunks for each candidate
