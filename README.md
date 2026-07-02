@@ -1,6 +1,5 @@
 ---
 title: Resume Shortlister
-emoji: 🚀
 colorFrom: blue
 colorTo: indigo
 sdk: docker
@@ -120,14 +119,6 @@ final_score = semantic_score × penalty_multiplier + bonus_total
 - `semantic_score` — calibrated Cross-Encoder score ∈ [0.30, 0.95]
 - `penalty_multiplier` — product of all applicable penalty weights ∈ (0, 1]
 - `bonus_total` — sum of applicable bonus points
-
----
-
-## Deployment
-
-See [DEPLOYMENT.md](DEPLOYMENT.md) for hosting on **Hugging Face Spaces**, Render, or Railway.
-
----
 
 ## File Reference
 
