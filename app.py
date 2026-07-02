@@ -203,7 +203,7 @@ def make_cache_key(payload: dict) -> str:
         "disqualifier_penalty": payload.get("disqualifier_penalty", 0.15),
         "penalty_config": payload.get("penalty_config", {}),
         "dataset_name": payload.get("dataset_name", "default"),
-        # top_k intentionally excluded — display count does not change pipeline scoring
+        "top_k": min(int(payload.get("top_k", 50)), 100),
     }, sort_keys=True)
     return hashlib.md5(key_parts.encode()).hexdigest()
 
@@ -337,9 +337,9 @@ def api_run():
         if not jd["must_have"] or all(not q.strip() for q in jd["must_have"]):
             return jsonify({"error": "At least one 'Must Have' requirement is needed"}), 400
 
-        # top_k controls display only; pipeline always uses PIPELINE_TOP_K for consistent ranking
-        PIPELINE_TOP_K = 100
         display_top_k = min(int(data.get("top_k", 50)), 500)
+        # Limit pipeline to what is displayed (up to 100) to avoid 60s timeout on Hugging Face Spaces
+        PIPELINE_TOP_K = min(display_top_k, 100)
 
         # --- Check cache first ---
         cache_key = make_cache_key(data)
