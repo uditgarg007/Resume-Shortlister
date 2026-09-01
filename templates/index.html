@@ -310,9 +310,14 @@
             <h2 class="card-title">Ranked Results</h2>
             <span id="resultsCountBadge" class="results-badge">Showing 50</span>
           </div>
-          <button class="btn-secondary" id="btnExportCsv" onclick="exportCSV()">
-            <i data-lucide="download" class="icon-sm"></i> Export CSV
-          </button>
+          <div class="flex-align" style="gap: 8px;">
+            <a href="https://drive.google.com/file/d/16K6pCJKYrfszJOFLzivDN49T4Xj6tcKP/view?usp=sharing" target="_blank" rel="noopener noreferrer" class="btn-secondary" id="btnViewCandidates" style="text-decoration: none;">
+              <i data-lucide="external-link" class="icon-sm"></i> View Candidates
+            </a>
+            <button class="btn-secondary" id="btnExportCsv" onclick="exportCSV()">
+              <i data-lucide="download" class="icon-sm"></i> Export CSV
+            </button>
+          </div>
         </div>
 
         <div class="stats-bar" id="statsBar"></div>
