@@ -265,7 +265,7 @@ def get_default_jd() -> dict:
             "Career entirely in pure research academic lab without production deployment",
             "AI experience primarily calling OpenAI APIs LangChain without pre-LLM ML experience",
             "Has not written production code in 18 months moved into architecture or management",
-            "Entire career at TCS Infosys Wipro Accenture Cognizant Capgemini consulting firms",
+            "Entire career at TCS Infosys Wipro Cognizant Capgemini consulting firms",
             "Primary expertise computer vision speech robotics without NLP information retrieval",
         ],
 

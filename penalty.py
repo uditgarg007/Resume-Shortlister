@@ -82,7 +82,7 @@ CODING_PENALTY              = 0.70
 
 # Penalty 5: Consulting lifer — entire career at services firms
 CONSULTING_FIRMS = {
-    "tcs", "infosys", "wipro", "accenture", "cognizant", "capgemini",
+    "tcs", "infosys", "wipro", "cognizant", "capgemini",
     "hcl", "tech mahindra", "mindtree", "mphasis", "ltimindtree",
 }
 CONSULTING_PENALTY = 0.65
